@@ -2,6 +2,8 @@ package com.doitsh.app.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -45,7 +47,7 @@ fun SettingsScreen(
                 },
                 label = { Text("Local") },
                 leadingIcon = if (mode == DataMode.LOCAL) {
-                    { Icon(androidx.compose.material.icons.Icons.Filled.CheckCircle, contentDescription = null) }
+                    { Icon(Icons.Filled.CheckCircle, contentDescription = null) }
                 } else null
             )
             FilterChip(
@@ -57,7 +59,7 @@ fun SettingsScreen(
                 },
                 label = { Text("Self-hosted") },
                 leadingIcon = if (mode == DataMode.SELF_HOSTED) {
-                    { Icon(androidx.compose.material.icons.Icons.Filled.CheckCircle, contentDescription = null) }
+                    { Icon(Icons.Filled.CheckCircle, contentDescription = null) }
                 } else null
             )
         }

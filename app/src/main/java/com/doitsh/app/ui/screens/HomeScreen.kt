@@ -61,7 +61,7 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding(),
-            bottom = contentPadding.calculateBottomPadding() + 80.dp,
+            bottom = contentPadding.calculateBottomPadding() + 112.dp,
             start = 16.dp,
             end = 16.dp
         ),
