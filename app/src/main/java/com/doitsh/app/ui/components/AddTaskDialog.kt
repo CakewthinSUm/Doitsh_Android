@@ -1,5 +1,9 @@
 package com.doitsh.app.ui.components
 
+import android.app.Activity
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,14 +18,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.doitsh.app.domain.model.Priority
 import com.doitsh.app.ui.theme.SpacingTokens
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +47,24 @@ fun AddTaskDialog(
 
     val focusRequester = remember { FocusRequester() }
 
+    // Blur the activity content behind the dialog (API 31+)
+    val activityDecorView = (LocalContext.current as? Activity)?.window?.decorView
+    DisposableEffect(activityDecorView) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            activityDecorView?.setRenderEffect(
+                RenderEffect.createBlurEffect(14f, 14f, Shader.TileMode.CLAMP)
+            )
+        }
+        onDispose {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                activityDecorView?.setRenderEffect(null)
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
+        // Wait for the dialog window to be attached and focused before requesting
+        delay(150)
         focusRequester.requestFocus()
     }
 
@@ -48,15 +72,24 @@ fun AddTaskDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
             dismissOnBackPress = true,
             dismissOnClickOutside = false
         )
     ) {
-        // Background scrim with lower opacity
+        // Remove the platform dim so only our own scrim darkens the screen,
+        // uniformly across the status/navigation bar areas too.
+        val dialogView = LocalView.current
+        DisposableEffect(dialogView) {
+            (dialogView.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+            onDispose { }
+        }
+
+        // Background scrim covering the full screen (including system bars)
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f))
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.18f))
                 .clickable { onDismiss() }
         ) {
             // Dialog card positioned at bottom
@@ -64,6 +97,8 @@ fun AddTaskDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
+                    // Sit above the navigation bar, and above the keyboard when it shows
+                    .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
                     .padding(horizontal = SpacingTokens.Default)
                     .padding(bottom = SpacingTokens.XLarge)
                     .clickable { } // Consume clicks to prevent scrim dismiss
