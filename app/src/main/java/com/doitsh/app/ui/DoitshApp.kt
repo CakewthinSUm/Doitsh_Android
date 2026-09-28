@@ -1,10 +1,9 @@
 package com.doitsh.app.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
@@ -70,7 +69,6 @@ private fun BottomDock(
     onScreenSelected: (AppScreen) -> Unit,
     onAddTask: () -> Unit
 ) {
-    val dockBorder = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
     val dockShape = RoundedCornerShape(30.dp)
 
     Box(
@@ -88,7 +86,6 @@ private fun BottomDock(
             DockNavigation(
                 currentScreen = currentScreen,
                 onScreenSelected = onScreenSelected,
-                border = dockBorder,
                 shape = dockShape
             )
 
@@ -96,15 +93,14 @@ private fun BottomDock(
                 modifier = Modifier.size(88.dp),
                 onClick = onAddTask,
                 shape = RoundedCornerShape(24.dp),
-                color = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                border = dockBorder
+                color = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Outlined.Edit,
+                        imageVector = Icons.Filled.Add,
                         contentDescription = "Add task",
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
@@ -116,15 +112,13 @@ private fun BottomDock(
 private fun DockNavigation(
     currentScreen: AppScreen,
     onScreenSelected: (AppScreen) -> Unit,
-    border: BorderStroke,
     shape: Shape
 ) {
     Surface(
         modifier = Modifier.height(56.dp),
         shape = shape,
-        color = Color.Transparent,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = border
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp),
@@ -155,7 +149,7 @@ private fun DockItem(
         onClick = onClick,
         shape = RoundedCornerShape(24.dp),
         color = if (selected) {
-            MaterialTheme.colorScheme.surfaceContainerHighest
+            MaterialTheme.colorScheme.secondaryContainer
         } else {
             Color.Transparent
         },
