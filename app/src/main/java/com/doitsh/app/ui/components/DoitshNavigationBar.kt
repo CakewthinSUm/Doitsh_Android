@@ -22,7 +22,7 @@ data class NavBarItem(
  * M3 Expressive floating bottom bar:
  * - Left: a pill (capsule) container with icon-only nav buttons
  * - Right: a separate rounded-square action button
- * Both float above content with shadow, placed close together.
+ * The entire group is horizontally centered on screen.
  */
 @Composable
 fun FloatingBottomBar(
@@ -35,16 +35,12 @@ fun FloatingBottomBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(
-                start = SpacingTokens.Default,
-                end = SpacingTokens.Default,
-                bottom = SpacingTokens.Default
-            ),
-        contentAlignment = Alignment.CenterStart
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(bottom = SpacingTokens.Small),
+        contentAlignment = Alignment.Center
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left: pill-shaped nav container
@@ -57,7 +53,7 @@ fun FloatingBottomBar(
                 Row(
                     modifier = Modifier
                         .height(56.dp)
-                        .padding(horizontal = 4.dp),
+                        .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     navItems.forEachIndexed { index, item ->
@@ -70,25 +66,26 @@ fun FloatingBottomBar(
                 }
             }
 
-            // Right: standalone rounded-square action button
+            // Right: standalone rounded-square action button, larger than the
+            // capsule (large-FAB scale) and vertically centered on its axis
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
                 shadowElevation = 4.dp,
                 tonalElevation = 2.dp,
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(20.dp))
+                    .size(96.dp)
+                    .clip(RoundedCornerShape(24.dp))
             ) {
                 IconButton(
                     onClick = onAddClick,
-                    modifier = Modifier.size(56.dp)
+                    modifier = Modifier.size(96.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
                         contentDescription = "Add",
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
