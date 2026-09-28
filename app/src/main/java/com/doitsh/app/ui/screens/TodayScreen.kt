@@ -1,17 +1,14 @@
 package com.doitsh.app.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,19 +16,18 @@ import com.doitsh.app.domain.model.Task
 import com.doitsh.app.domain.repository.TaskRepository
 import com.doitsh.app.ui.components.EmptyState
 import com.doitsh.app.ui.components.TaskCard
-import com.doitsh.app.ui.theme.MotionTokens
 import com.doitsh.app.ui.theme.SpacingTokens
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 @HiltViewModel
-class TasksViewModel @Inject constructor(
+class TodayViewModel @Inject constructor(
     private val repository: TaskRepository
 ) : ViewModel() {
-
     val tasks by lazy {
         repository.getAllTasks().stateIn(
             scope = viewModelScope,
@@ -55,10 +51,14 @@ class TasksViewModel @Inject constructor(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
-    viewModel: TasksViewModel = hiltViewModel()
+fun TodayScreen(
+    viewModel: TodayViewModel = hiltViewModel()
 ) {
-    val tasks by viewModel.tasks.collectAsState()
+    val allTasks by viewModel.tasks.collectAsState()
+    val today = LocalDate.now()
+    val todayTasks = allTasks.filter { task ->
+        task.dueDate != null && task.dueDate.toLocalDate() == today
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -70,12 +70,15 @@ fun HomeScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(SpacingTokens.Small)
     ) {
-        if (tasks.isEmpty()) {
+        if (todayTasks.isEmpty()) {
             item {
-                EmptyState()
+                EmptyState(
+                    title = "No tasks for today",
+                    subtitle = "Enjoy your day or add new tasks"
+                )
             }
         } else {
-            itemsIndexed(tasks, key = { _, task -> task.id }) { index, task ->
+            itemsIndexed(todayTasks, key = { _, task -> task.id }) { index, task ->
                 var visible by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) { visible = true }
 
@@ -86,7 +89,7 @@ fun HomeScreen(
                             dampingRatio = Spring.DampingRatioNoBouncy,
                             stiffness = Spring.StiffnessMedium
                         )
-                    ) + slideInVertically(
+                    ) + androidx.compose.animation.slideInVertically(
                         initialOffsetY = { it / 3 },
                         animationSpec = spring(
                             dampingRatio = Spring.DampingRatioMediumBouncy,

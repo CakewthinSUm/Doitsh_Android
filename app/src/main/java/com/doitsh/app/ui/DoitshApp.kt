@@ -1,87 +1,119 @@
 package com.doitsh.app.ui
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.doitsh.app.ui.screens.HomeScreen
-import com.doitsh.app.ui.screens.SettingsScreen
-import com.doitsh.app.ui.screens.TasksViewModel
+import com.doitsh.app.ui.components.*
+import com.doitsh.app.ui.screens.AddTaskViewModel
+import com.doitsh.app.ui.screens.InboxScreen
+import com.doitsh.app.ui.screens.MoreScreen
+import com.doitsh.app.ui.screens.ProjectsScreen
+import com.doitsh.app.ui.screens.TodayScreen
+import com.doitsh.app.ui.theme.SpacingTokens
+import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DoitshApp() {
-    var currentScreen by remember { mutableStateOf(AppScreen.Home) }
+fun DoitshApp(
+    addTaskViewModel: AddTaskViewModel = hiltViewModel()
+) {
+    var currentScreen by remember { mutableStateOf(AppScreen.Today) }
+    var showAddTaskDialog by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val screenIndex = when (currentScreen) {
+        AppScreen.Today -> 0
+        AppScreen.Projects -> 1
+        AppScreen.Inbox -> 2
+        AppScreen.More -> 3
+    }
 
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = when (currentScreen) {
-                            AppScreen.Home -> "Doitsh"
-                            AppScreen.Settings -> "Settings"
-                        }
-                    )
+            DoitshTopBar(
+                title = when (currentScreen) {
+                    AppScreen.Today -> "Doitsh"
+                    AppScreen.Projects -> "Projects"
+                    AppScreen.Inbox -> "Inbox"
+                    AppScreen.More -> "More"
                 },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                // Let the top bar extend behind the status bar
-                windowInsets = WindowInsets.statusBars
+                scrollBehavior = scrollBehavior
             )
         },
         bottomBar = {
-            NavigationBar(
-                // Let the nav bar extend behind the system navigation bar
-                windowInsets = NavigationBarDefaults.windowInsets
+            FloatingBottomBar(
+                navItems = DefaultNavItems,
+                selectedIndex = screenIndex,
+                onItemSelected = { index ->
+                    currentScreen = when (index) {
+                        0 -> AppScreen.Today
+                        1 -> AppScreen.Projects
+                        2 -> AppScreen.Inbox
+                        3 -> AppScreen.More
+                        else -> AppScreen.Today
+                    }
+                },
+                onAddClick = { showAddTaskDialog = true }
+            )
+        }
+    ) { padding ->
+        AnimatedContent(
+            targetState = currentScreen,
+            transitionSpec = {
+                fadeIn(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ) togetherWith fadeOut(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                )
+            },
+            label = "screen_transition"
+        ) { screen ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
             ) {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                    label = { Text("Tasks") },
-                    selected = currentScreen == AppScreen.Home,
-                    onClick = { currentScreen = AppScreen.Home }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                    label = { Text("Settings") },
-                    selected = currentScreen == AppScreen.Settings,
-                    onClick = { currentScreen = AppScreen.Settings }
-                )
-            }
-        },
-        floatingActionButton = {
-            if (currentScreen == AppScreen.Home) {
-                FloatingActionButton(
-                    onClick = { /* TODO: show add task dialog */ },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add task")
+                when (screen) {
+                    AppScreen.Today -> TodayScreen()
+                    AppScreen.Projects -> ProjectsScreen()
+                    AppScreen.Inbox -> InboxScreen()
+                    AppScreen.More -> MoreScreen()
                 }
             }
         }
-    ) { padding ->
-        when (currentScreen) {
-            AppScreen.Home -> HomeScreen(contentPadding = padding)
-            AppScreen.Settings -> SettingsScreen(contentPadding = padding)
-        }
+    }
+
+    // Add Task Dialog
+    if (showAddTaskDialog) {
+        AddTaskDialog(
+            onDismiss = { showAddTaskDialog = false },
+            onTaskAdded = { /* Refresh will happen automatically via Flow */ },
+            submitTask = { title, projectId, dueDateLabel, priority ->
+                addTaskViewModel.addTask(
+                    title = title,
+                    projectId = projectId,
+                    dueDate = if (dueDateLabel == "今天") LocalDateTime.now() else null,
+                    priority = priority,
+                    onSuccess = { /* Task added successfully */ }
+                )
+            }
+        )
     }
 }
 
-enum class AppScreen { Home, Settings }
+enum class AppScreen { Today, Projects, Inbox, More }
