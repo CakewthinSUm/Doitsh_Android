@@ -10,16 +10,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.doitsh.app.ui.components.*
-import com.doitsh.app.ui.screens.HomeScreen
-import com.doitsh.app.ui.screens.SettingsScreen
+import com.doitsh.app.ui.screens.InboxScreen
+import com.doitsh.app.ui.screens.MoreScreen
+import com.doitsh.app.ui.screens.ProjectsScreen
+import com.doitsh.app.ui.screens.TodayScreen
 import com.doitsh.app.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoitshApp() {
-    var currentScreen by remember { mutableStateOf(AppScreen.Home) }
+    var currentScreen by remember { mutableStateOf(AppScreen.Today) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val screenIndex = if (currentScreen == AppScreen.Home) 0 else 1
+    val screenIndex = when (currentScreen) {
+        AppScreen.Today -> 0
+        AppScreen.Projects -> 1
+        AppScreen.Inbox -> 2
+        AppScreen.More -> 3
+    }
 
     Scaffold(
         modifier = Modifier
@@ -28,8 +35,10 @@ fun DoitshApp() {
         topBar = {
             DoitshTopBar(
                 title = when (currentScreen) {
-                    AppScreen.Home -> "Doitsh"
-                    AppScreen.Settings -> "Settings"
+                    AppScreen.Today -> "Doitsh"
+                    AppScreen.Projects -> "Projects"
+                    AppScreen.Inbox -> "Inbox"
+                    AppScreen.More -> "More"
                 },
                 scrollBehavior = scrollBehavior
             )
@@ -40,11 +49,11 @@ fun DoitshApp() {
                 selectedIndex = screenIndex,
                 onItemSelected = { index ->
                     currentScreen = when (index) {
-                        0 -> AppScreen.Home
-                        1 -> AppScreen.Home
-                        2 -> AppScreen.Home
-                        3 -> AppScreen.Settings
-                        else -> AppScreen.Home
+                        0 -> AppScreen.Today
+                        1 -> AppScreen.Projects
+                        2 -> AppScreen.Inbox
+                        3 -> AppScreen.More
+                        else -> AppScreen.Today
                     }
                 },
                 onAddClick = { /* TODO: show add task dialog */ }
@@ -74,12 +83,14 @@ fun DoitshApp() {
                     .padding(padding)
             ) {
                 when (screen) {
-                    AppScreen.Home -> HomeScreen()
-                    AppScreen.Settings -> SettingsScreen()
+                    AppScreen.Today -> TodayScreen()
+                    AppScreen.Projects -> ProjectsScreen()
+                    AppScreen.Inbox -> InboxScreen()
+                    AppScreen.More -> MoreScreen()
                 }
             }
         }
     }
 }
 
-enum class AppScreen { Home, Settings }
+enum class AppScreen { Today, Projects, Inbox, More }
