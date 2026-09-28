@@ -36,7 +36,7 @@ fun FloatingBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(bottom = SpacingTokens.Small),
+            .padding(bottom = SpacingTokens.Default),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -52,7 +52,7 @@ fun FloatingBottomBar(
             ) {
                 Row(
                     modifier = Modifier
-                        .height(56.dp)
+                        .height(64.dp)
                         .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -101,7 +101,7 @@ private fun PillIcon(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(52.dp)
+        modifier = Modifier.size(60.dp)
     ) {
         Icon(
             imageVector = icon,
@@ -110,7 +110,7 @@ private fun PillIcon(
                 MaterialTheme.colorScheme.primary
             else
                 MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(28.dp)
         )
     }
 }
