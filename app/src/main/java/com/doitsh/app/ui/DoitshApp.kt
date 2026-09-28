@@ -9,17 +9,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.doitsh.app.ui.components.*
+import com.doitsh.app.ui.screens.AddTaskViewModel
 import com.doitsh.app.ui.screens.InboxScreen
 import com.doitsh.app.ui.screens.MoreScreen
 import com.doitsh.app.ui.screens.ProjectsScreen
 import com.doitsh.app.ui.screens.TodayScreen
 import com.doitsh.app.ui.theme.SpacingTokens
+import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DoitshApp() {
+fun DoitshApp(
+    addTaskViewModel: AddTaskViewModel = hiltViewModel()
+) {
     var currentScreen by remember { mutableStateOf(AppScreen.Today) }
+    var showAddTaskDialog by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val screenIndex = when (currentScreen) {
         AppScreen.Today -> 0
@@ -56,7 +62,7 @@ fun DoitshApp() {
                         else -> AppScreen.Today
                     }
                 },
-                onAddClick = { /* TODO: show add task dialog */ }
+                onAddClick = { showAddTaskDialog = true }
             )
         }
     ) { padding ->
@@ -90,6 +96,23 @@ fun DoitshApp() {
                 }
             }
         }
+    }
+
+    // Add Task Dialog
+    if (showAddTaskDialog) {
+        AddTaskDialog(
+            onDismiss = { showAddTaskDialog = false },
+            onTaskAdded = { /* Refresh will happen automatically via Flow */ },
+            submitTask = { title, projectId, dueDateLabel, priority ->
+                addTaskViewModel.addTask(
+                    title = title,
+                    projectId = projectId,
+                    dueDate = if (dueDateLabel == "今天") LocalDateTime.now() else null,
+                    priority = priority,
+                    onSuccess = { /* Task added successfully */ }
+                )
+            }
+        )
     }
 }
 
