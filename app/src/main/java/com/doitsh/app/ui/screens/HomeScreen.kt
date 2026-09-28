@@ -56,7 +56,6 @@ class TasksViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    contentPadding: PaddingValues,
     viewModel: TasksViewModel = hiltViewModel()
 ) {
     val tasks by viewModel.tasks.collectAsState()
@@ -64,8 +63,8 @@ fun HomeScreen(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            top = contentPadding.calculateTopPadding(),
-            bottom = contentPadding.calculateBottomPadding() + SpacingTokens.DisplayXL,
+            top = SpacingTokens.Default,
+            bottom = SpacingTokens.DisplayXXL,
             start = SpacingTokens.Default,
             end = SpacingTokens.Default
         ),

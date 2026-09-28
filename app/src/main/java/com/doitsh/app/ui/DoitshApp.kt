@@ -4,16 +4,14 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.doitsh.app.ui.components.*
 import com.doitsh.app.ui.screens.HomeScreen
 import com.doitsh.app.ui.screens.SettingsScreen
-import com.doitsh.app.ui.theme.MotionTokens
 import com.doitsh.app.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,24 +35,20 @@ fun DoitshApp() {
             )
         },
         bottomBar = {
-            DoitshNavigationBar(
-                items = DefaultNavigationItems,
+            FloatingBottomBar(
+                navItems = DefaultNavItems,
                 selectedIndex = screenIndex,
                 onItemSelected = { index ->
                     currentScreen = when (index) {
                         0 -> AppScreen.Home
-                        1 -> AppScreen.Settings
+                        1 -> AppScreen.Home
+                        2 -> AppScreen.Home
+                        3 -> AppScreen.Settings
                         else -> AppScreen.Home
                     }
-                }
+                },
+                onAddClick = { /* TODO: show add task dialog */ }
             )
-        },
-        floatingActionButton = {
-            if (currentScreen == AppScreen.Home) {
-                DoitshFab(
-                    onClick = { /* TODO: show add task dialog */ }
-                )
-            }
         }
     ) { padding ->
         AnimatedContent(
@@ -74,9 +68,15 @@ fun DoitshApp() {
             },
             label = "screen_transition"
         ) { screen ->
-            when (screen) {
-                AppScreen.Home -> HomeScreen(contentPadding = padding)
-                AppScreen.Settings -> SettingsScreen(contentPadding = padding)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                when (screen) {
+                    AppScreen.Home -> HomeScreen()
+                    AppScreen.Settings -> SettingsScreen()
+                }
             }
         }
     }

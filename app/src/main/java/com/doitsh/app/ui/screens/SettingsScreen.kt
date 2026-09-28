@@ -21,7 +21,6 @@ import com.doitsh.app.ui.theme.SpacingTokens
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    contentPadding: PaddingValues,
     userSettings: UserSettings = LocalContext.current.let {
         UserSettings(it)
     }
@@ -33,7 +32,6 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(contentPadding)
             .padding(SpacingTokens.Default),
         verticalArrangement = Arrangement.spacedBy(SpacingTokens.XLarge)
     ) {
