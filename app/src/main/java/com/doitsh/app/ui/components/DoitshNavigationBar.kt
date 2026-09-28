@@ -22,7 +22,7 @@ data class NavBarItem(
  * M3 Expressive floating bottom bar:
  * - Left: a pill (capsule) container with icon-only nav buttons
  * - Right: a separate rounded-square action button
- * Both float above content with shadow.
+ * Both float above content with shadow, placed close together.
  */
 @Composable
 fun FloatingBottomBar(
@@ -35,12 +35,16 @@ fun FloatingBottomBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = SpacingTokens.Default, vertical = SpacingTokens.Default),
-        contentAlignment = Alignment.Center
+            .padding(
+                start = SpacingTokens.Default,
+                end = SpacingTokens.Default,
+                bottom = SpacingTokens.Default
+            ),
+        contentAlignment = Alignment.CenterStart
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left: pill-shaped nav container
@@ -54,8 +58,7 @@ fun FloatingBottomBar(
                     modifier = Modifier
                         .height(56.dp)
                         .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(0.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     navItems.forEachIndexed { index, item ->
                         PillIcon(
@@ -101,7 +104,7 @@ private fun PillIcon(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(48.dp)
+        modifier = Modifier.size(52.dp)
     ) {
         Icon(
             imageVector = icon,
@@ -110,7 +113,7 @@ private fun PillIcon(
                 MaterialTheme.colorScheme.primary
             else
                 MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(24.dp)
         )
     }
 }
