@@ -1,7 +1,7 @@
 plugins {
-    id("io.ktor.plugin")
-    id("org.jetbrains.kotlin.jvm")
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
+    alias(libs.plugins.ktor)
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 application {
@@ -10,36 +10,36 @@ application {
 
 dependencies {
     // Ktor Server
-    implementation("io.ktor:ktor-server-core:2.3.12")
-    implementation("io.ktor:ktor-server-netty:2.3.12")
-    implementation("io.ktor:ktor-server-content-negotiation:2.3.12")
-    implementation("io.ktor:ktor-server-cors:2.3.12")
-    implementation("io.ktor:ktor-server-auth:2.3.12")
-    implementation("io.ktor:ktor-server-auth-jwt:2.3.12")
-    implementation("io.ktor:ktor-server-status-pages:2.3.12")
-    implementation("io.ktor:ktor-server-call-logging:2.3.12")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.netty)
+    implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.auth)
+    implementation(libs.ktor.server.auth.jwt)
+    implementation(libs.ktor.server.status.pages)
+    implementation(libs.ktor.server.call.logging)
+    implementation(libs.ktor.serialization.kotlinx.json.server)
 
     // Exposed ORM
-    implementation("org.jetbrains.exposed:exposed-core:0.54.0")
-    implementation("org.jetbrains.exposed:exposed-dao:0.54.0")
-    implementation("org.jetbrains.exposed:exposed-jdbc:0.54.0")
-    implementation("org.jetbrains.exposed:exposed-java-time:0.54.0")
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.dao)
+    implementation(libs.exposed.jdbc)
+    implementation(libs.exposed.java.time)
 
     // SQLite driver
-    implementation("org.xerial:sqlite-jdbc:3.46.1.0")
+    implementation(libs.sqlite.jdbc)
     // PostgreSQL driver (optional, user can switch)
-    implementation("org.postgresql:postgresql:42.7.4")
+    implementation(libs.postgresql)
 
     // HikariCP connection pool
-    implementation("com.zaxxer:HikariCP:5.1.0")
+    implementation(libs.hikaricp)
 
     // Logging
-    implementation("ch.qos.logback:logback-classic:1.5.8")
+    implementation(libs.logback.classic)
 
     // BCrypt for password hashing
-    implementation("org.mindrot:jbcrypt:0.4")
+    implementation(libs.jbcrypt)
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation(libs.kotlinx.coroutines.core)
 }

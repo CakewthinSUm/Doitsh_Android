@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Doitsh" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+      The pre-Compose launch window. This only has to match the app's light colour
+      scheme closely enough that the hand-off into Compose is not a visible flash;
+      `values-night/themes.xml` provides the dark counterpart.
+    -->
+    <style name="Theme.Doitsh" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

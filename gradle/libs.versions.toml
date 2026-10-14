@@ -1,0 +1,167 @@
+[versions]
+# --- Build tooling ---
+agp = "9.4.1"
+kotlin = "2.4.21"
+ksp = "2.3.12"
+
+# --- AndroidX / Compose ---
+coreKtx = "1.19.1"
+lifecycle = "2.11.0"
+activityCompose = "1.13.0"
+composeBom = "2026.09.00"
+# The BOM pins material3 to 1.4.0; the Expressive FAB-menu APIs used by
+# DoitshApp.kt only exist in the 1.5 line, so material3 is overridden below.
+material3 = "1.5.0-beta01"
+material3Adaptive = "1.3.0"
+navigation3 = "1.2.0"
+
+# --- Data / background / images ---
+room = "2.8.5"
+datastore = "1.2.1"
+work = "2.12.0"
+paging = "3.5.3"
+collection = "1.7.0"
+coil = "3.6.3"
+okhttp = "5.5.0"
+
+# --- DI ---
+hilt = "2.60.1"
+androidxHilt = "1.4.0"
+
+# --- Kotlin ecosystem ---
+coroutines = "1.11.0"
+serialization = "1.11.0"
+ktorClient = "3.6.0"
+
+# --- Performance ---
+profileinstaller = "1.4.1"
+benchmark = "1.5.0"
+
+# --- Server (runtime stack deliberately left on Ktor 2.x) ---
+# The build plugin is NOT held at the runtime version: io.ktor.plugin 2.3.12
+# bundles a Shadow plugin that calls the `project.convention` API Gradle 9
+# removed, so it cannot even apply. Only this build-tooling coordinate moves to
+# 3.x; the server's own Ktor/Exposed dependencies stay on 2.3.12/0.54.0 below.
+ktorPlugin = "3.6.0"
+ktorServer = "2.3.12"
+exposed = "0.54.0"
+sqlite = "3.46.1.0"
+postgresql = "42.7.4"
+hikari = "5.1.0"
+logback = "1.5.8"
+jbcrypt = "0.4"
+
+# --- Test ---
+junit = "4.13.2"
+androidxTestJunit = "1.2.1"
+espresso = "3.6.1"
+
+[libraries]
+# --- Core Android ---
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycle" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+
+# --- Compose ---
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+# Declared with an explicit version so it wins over the BOM's 1.4.0.
+androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+androidx-compose-material3-adaptive = { module = "androidx.compose.material3.adaptive:adaptive", version.ref = "material3Adaptive" }
+androidx-compose-material3-adaptive-layout = { module = "androidx.compose.material3.adaptive:adaptive-layout", version.ref = "material3Adaptive" }
+
+# --- Navigation 3 ---
+androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
+androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
+
+# --- Room ---
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+
+# --- DataStore / Work / Paging / Collection ---
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+androidx-paging-runtime = { module = "androidx.paging:paging-runtime", version.ref = "paging" }
+androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging" }
+androidx-collection-ktx = { module = "androidx.collection:collection-ktx", version.ref = "collection" }
+
+# --- Images / network ---
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+okhttp-bom = { module = "com.squareup.okhttp3:okhttp-bom", version.ref = "okhttp" }
+okhttp = { module = "com.squareup.okhttp3:okhttp" }
+okhttp-logging = { module = "com.squareup.okhttp3:logging-interceptor" }
+
+# --- Hilt ---
+hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
+hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
+# Replaces hilt-navigation-compose, which is deprecated and pulls in Navigation 2.
+androidx-hilt-lifecycle-viewmodel-compose = { module = "androidx.hilt:hilt-lifecycle-viewmodel-compose", version.ref = "androidxHilt" }
+
+# --- Kotlin ecosystem ---
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "serialization" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktorClient" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktorClient" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktorClient" }
+
+# --- Performance ---
+androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
+# Macrobenchmark artifacts are listed for a future self-instrumenting benchmark
+# module; no module consumes them yet (see the note in the README).
+androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
+androidx-benchmark-junit4 = { module = "androidx.benchmark:benchmark-junit4", version.ref = "benchmark" }
+androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version = "2.3.0" }
+
+# --- Server (Ktor 2.x runtime stack, unchanged) ---
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktorServer" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktorServer" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktorServer" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktorServer" }
+ktor-server-auth = { module = "io.ktor:ktor-server-auth", version.ref = "ktorServer" }
+ktor-server-auth-jwt = { module = "io.ktor:ktor-server-auth-jwt", version.ref = "ktorServer" }
+ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktorServer" }
+ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktorServer" }
+ktor-serialization-kotlinx-json-server = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktorServer" }
+exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-dao = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exposed" }
+exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
+exposed-java-time = { module = "org.jetbrains.exposed:exposed-java-time", version.ref = "exposed" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+jbcrypt = { module = "org.mindrot:jbcrypt", version.ref = "jbcrypt" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+
+# --- Test ---
+junit = { module = "junit:junit", version.ref = "junit" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestJunit" }
+androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+# Note: org.jetbrains.kotlin.android is deliberately absent. AGP 9 has built-in
+# Kotlin (android.builtInKotlin defaults to true) and applies the Kotlin plugin
+# itself, so declaring it here fails the build with "Cannot add extension with
+# name 'kotlin'".
+#
+# The Kotlin plugins below *do* carry a version, and that is the point: AGP 9.4.1
+# bundles KGP 2.2.10, and Gradle resolves the classpath by picking the highest
+# version requested for a module. Requesting 2.4.21 here therefore upgrades the
+# KGP that AGP's built-in Kotlin runs on. AGP exposes no property for this — the
+# classpath version is the only lever.
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+ktor = { id = "io.ktor.plugin", version.ref = "ktorPlugin" }
