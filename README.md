@@ -6,6 +6,8 @@ A task and project management app for Android, with a Kotlin/Ktor backend.
 
 ```
 Doitsh/
+├── gradle/
+│   └── libs.versions.toml  # Version catalog — single source of truth for versions
 ├── app/                    # Android client (Jetpack Compose)
 │   └── src/main/java/com/doitsh/app/
 │       ├── data/           # Room entities, DAOs, API client, repositories
@@ -23,41 +25,72 @@ Doitsh/
 
 ## Tech Stack
 
+All dependency versions live in one place: [`gradle/libs.versions.toml`](gradle/libs.versions.toml)
+(Gradle version catalog). Both modules read versions from it rather than inlining strings.
+
+### Build toolchain
+- **Gradle** 9.6.0 (wrapper) · **AGP** 9.4.1 · **Kotlin** 2.4.21 · **KSP** 2.3.12 · **JDK** 17+
+- AGP 9 has *built-in Kotlin*, so `org.jetbrains.kotlin.android` is deliberately **not**
+  applied — declaring it fails the build. Kotlin options live in a top-level
+  `kotlin { compilerOptions { } }` block, not `android.kotlinOptions {}`.
+
 ### Android Client
-- **UI**: Jetpack Compose with Material 3
-- **Local DB**: Room with type converters
-- **DI**: Hilt
-- **Networking**: Ktor client with kotlinx.serialization
-- **Async**: Kotlin Coroutines + Flow
+- **UI**: Jetpack Compose (BOM 2026.09.00) with **Material 3 Expressive** throughout:
+  `DoitshTheme` passes `MotionScheme.expressive()` and the 8-role Expressive `Shapes`
+  scale to the 5-argument `MaterialTheme`, and the feature code uses the Expressive
+  component set (`FloatingActionButtonMenu`, `ShortNavigationBar`, `ToggleButton`,
+  `LoadingIndicator`, `ListItem`, `SwipeToDismissBox`). material3 is pinned explicitly
+  to 1.5.0-beta01 because the BOM's 1.4.0 lacks those APIs
+- **Navigation**: Navigation 3 (`androidx.navigation3` 1.2.0) with a real back stack
+  and `NavDisplay`
+- **Local DB**: Room 2.8.5 with type converters
+- **DI**: Hilt 2.60.1
+- **Networking**: Ktor client 3.6.0 with kotlinx.serialization
+- **Async**: Kotlin Coroutines 1.11.0 + Flow
+- **Adaptive**: Material 3 Adaptive 1.3.0 — `currentWindowAdaptiveInfoV2()` drives a
+  `NavigationRail` at medium width and above, falling back to `ShortNavigationBar`
+- **Also on the classpath** (added, not yet adopted by feature code): DataStore 1.2.1,
+  WorkManager 2.12.0, Paging 3.5.3, Coil 3.6.3,
+  ProfileInstaller 1.4.1, OkHttp 5.5.0
+
+`compileSdk` is **37** (not 36): every library above ships AAR metadata declaring
+`minCompileSdk=37`, and AGP 9 fails the build outright on a mismatch. `targetSdk` is 36.
 
 ### Server
-- **Framework**: Ktor (Netty engine)
-- **ORM**: Exposed (JetBrains)
+- **Framework**: Ktor (Netty engine) 2.3.12
+- **ORM**: Exposed (JetBrains) 0.54.0
 - **Database**: SQLite (default) / PostgreSQL (optional)
 - **Auth**: JWT + BCrypt
 - **Connection pool**: HikariCP
 
+The server's own runtime dependency versions are intentionally unchanged; it shares only
+the Kotlin 2.4.21 compiler with the app.
+
 ## Getting Started
 
 ### Prerequisites
-- Android Studio Hedgehog or later
-- JDK 17
-- Gradle 9
+- Android Studio (recent; must support AGP 9)
+- JDK 17 or later (JDK 21 tested)
+- Gradle is supplied by the wrapper — do not install it separately
 
 ### Android Client
 
-Open the project root in Android Studio, sync Gradle, and run the `app` module on an emulator or device (min API 26).
+Open the project root in Android Studio, sync Gradle, and run the `app` module on an
+emulator or device (min API 34 / Android 14).
 
 ### Server
 
-The server module is temporarily disabled due to Ktor plugin incompatibility with Gradle 9. To run it manually:
+The server builds against the same toolchain and is included in the Gradle build.
 
 ```bash
-cd server
-./gradlew run
+./gradlew :server:run
 ```
 
 The server starts on `http://0.0.0.0:8080`.
+
+> **Note:** the `server/` Kotlin sources currently do not compile — they were written
+> against an older Exposed API and reference a package that does not exist in 0.54.0.
+> See "Known issues" below.
 
 ## API Endpoints
 
@@ -90,4 +123,23 @@ The server starts on `http://0.0.0.0:8080`.
 - Offline-first: Room-backed local storage with repository abstraction
 - Remote sync ready: Ktor API client with configurable base URL and auth token
 - Task filtering: All / Today / This Week
-- Material 3 design with floating toolbar navigation
+- Material 3 Expressive design with a floating action button menu
+- Swipe-to-dismiss task deletion, plus a per-row delete button
+- Adaptive navigation: `NavigationRail` on medium-and-wider windows, bottom bar below
+- Navigation 3 back stack (Home / Settings)
+- All user-facing strings in `res/values/strings.xml` (English)
+
+## Known issues
+
+**`server/` does not compile.** These are pre-existing bugs, not toolchain fallout —
+`server/src` is untouched since the initial commit. Three distinct problems:
+
+1. `Tables.kt:4` imports `org.jetbrains.exposed.java.time.datetime`. The package does not
+   exist; in Exposed 0.54.0 the classes live in `org.jetbrains.exposed.sql.javatime`.
+2. `Routing.kt` uses `FieldSet.select { }`, which Exposed 0.54.0 marks
+   `@DeprecationLevel.ERROR` (the SELECT DSL was redesigned). It is a hard compile error,
+   not a warning. The replacement is `selectAll().where { }`.
+3. `Routing.kt` references `JWTPrincipal` and `payload` without importing them —
+   `io.ktor.server.auth.*` does not cover the `io.ktor.server.auth.jwt` subpackage.
+
+`:app` is unaffected and builds, lints, and assembles cleanly.

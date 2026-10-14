@@ -3,6 +3,7 @@ package com.doitsh.app.data.remote
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.android.*
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -52,7 +53,7 @@ class DoitshApiClient @Inject constructor() {
 
     fun getBaseUrl(): String = baseUrl ?: throw IllegalStateException(
         "Base URL not configured. Call configure() first."
-    }
+    )
 
     fun close() {
         client?.close()

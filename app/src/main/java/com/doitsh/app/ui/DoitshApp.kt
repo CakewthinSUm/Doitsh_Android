@@ -1,156 +1,222 @@
 package com.doitsh.app.ui
 
-import androidx.compose.foundation.layout.*
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
+import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
+import androidx.window.core.layout.WindowSizeClass
+import com.doitsh.app.R
 import com.doitsh.app.ui.screens.CreationViewModel
 import com.doitsh.app.ui.screens.HomeScreen
 import com.doitsh.app.ui.screens.SettingsScreen
-import androidx.compose.material3.FloatingActionButtonMenu
-import androidx.compose.material3.FloatingActionButtonMenuItem
-import androidx.compose.material3.ToggleFloatingActionButton
-import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
-import androidx.compose.material3.animateFloatingActionButton
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Navigation 3 destinations. Each key is `@Serializable` so the back stack can be
+ * persisted and restored across process death by `rememberNavBackStack`.
+ */
+@Serializable
+data object Home : NavKey
+
+@Serializable
+data object Settings : NavKey
+
+/**
+ * A top-level destination, shared by the compact bottom bar and the wide-screen
+ * navigation rail so the two containers can never drift apart.
+ */
+private class TopLevelDestination(
+    val key: NavKey,
+    val icon: ImageVector,
+    @StringRes val label: Int,
+)
+
+private val TopLevelDestinations = listOf(
+    TopLevelDestination(Home, Icons.Filled.Home, R.string.nav_tasks),
+    TopLevelDestination(Settings, Icons.Filled.Settings, R.string.nav_settings),
+)
+
 @Composable
 fun DoitshApp() {
-    var currentScreen by remember { mutableStateOf(AppScreen.Home) }
+    val backStack = rememberNavBackStack(Home)
     var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var creationDialog by remember { mutableStateOf<CreationDialog?>(null) }
     val creationViewModel: CreationViewModel = hiltViewModel()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // The one adaptive decision in the app: below the medium width breakpoint the
+    // top-level destinations live in a bottom bar, at or above it in a side rail.
+    // The app itself stays single-pane.
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    val useNavigationRail =
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
     BackHandler(fabMenuExpanded) { fabMenuExpanded = false }
 
-    Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = when (currentScreen) {
-                            AppScreen.Home -> "Doitsh"
-                            AppScreen.Settings -> "Settings"
-                        }
+    Row(modifier = Modifier.fillMaxSize()) {
+        if (useNavigationRail) {
+            NavigationRail {
+                TopLevelDestinations.forEach { destination ->
+                    NavigationRailItem(
+                        selected = backStack.last() == destination.key,
+                        onClick = { backStack.selectTopLevel(destination.key) },
+                        icon = { Icon(destination.icon, contentDescription = null) },
+                        label = { Text(stringResource(destination.label)) }
                     )
-                },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                windowInsets = WindowInsets.statusBars
-            )
-        },
-        bottomBar = {
-            NavigationBar(
-                windowInsets = NavigationBarDefaults.windowInsets
-            ) {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                    label = { Text("Tasks") },
-                    selected = currentScreen == AppScreen.Home,
-                    onClick = { currentScreen = AppScreen.Home }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                    label = { Text("Settings") },
-                    selected = currentScreen == AppScreen.Settings,
-                    onClick = { currentScreen = AppScreen.Settings }
-                )
+                }
             }
-        },
-        floatingActionButton = {}
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            when (currentScreen) {
-                AppScreen.Home -> HomeScreen(contentPadding = padding)
-                AppScreen.Settings -> SettingsScreen(contentPadding = padding)
-            }
+        }
 
-            if (currentScreen == AppScreen.Home) {
-                FloatingActionButtonMenu(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(bottom = padding.calculateBottomPadding()),
-                    expanded = fabMenuExpanded,
-                    button = {
-                        ToggleFloatingActionButton(
-                            modifier = Modifier
-                                .animateFloatingActionButton(
-                                    visible = true,
-                                    alignment = Alignment.BottomEnd
-                                ),
-                            checked = fabMenuExpanded,
-                            onCheckedChange = { fabMenuExpanded = it }
-                        ) {
-                            val imageVector by remember {
-                                derivedStateOf {
-                                    if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add
-                                }
+        Scaffold(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = when (backStack.last()) {
+                                Settings -> stringResource(R.string.nav_settings)
+                                else -> stringResource(R.string.app_name)
                             }
-                            Icon(
-                                painter = rememberVectorPainter(imageVector),
-                                contentDescription = null,
-                                modifier = Modifier.animateIcon({ checkedProgress })
+                        )
+                    },
+                    scrollBehavior = scrollBehavior,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                    ),
+                    windowInsets = WindowInsets.statusBars
+                )
+            },
+            bottomBar = {
+                if (!useNavigationRail) {
+                    ShortNavigationBar {
+                        TopLevelDestinations.forEach { destination ->
+                            ShortNavigationBarItem(
+                                selected = backStack.last() == destination.key,
+                                onClick = { backStack.selectTopLevel(destination.key) },
+                                icon = { Icon(destination.icon, contentDescription = null) },
+                                label = { Text(stringResource(destination.label)) }
                             )
                         }
-                    },
-                ) {
-                    FloatingActionButtonMenuItem(
-                        onClick = {
-                            fabMenuExpanded = false
-                            creationDialog = CreationDialog.Project
+                    }
+                }
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            floatingActionButton = {}
+        ) { padding ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                NavDisplay(
+                    modifier = Modifier.fillMaxSize(),
+                    backStack = backStack,
+                    onBack = { backStack.removeLastOrNull() },
+                    entryDecorators = listOf(
+                        // Saves each entry's `rememberSaveable` state, and gives every
+                        // entry its own ViewModelStore so ViewModels are scoped to the
+                        // destination rather than to the Activity.
+                        rememberSaveableStateHolderNavEntryDecorator(),
+                        rememberViewModelStoreNavEntryDecorator()
+                    ),
+                    entryProvider = entryProvider {
+                        entry<Home> { HomeScreen(contentPadding = padding) }
+                        entry<Settings> {
+                            SettingsScreen(
+                                contentPadding = padding,
+                                onShowMessage = { message ->
+                                    scope.launch { snackbarHostState.showSnackbar(message) }
+                                }
+                            )
+                        }
+                    }
+                )
+
+                if (backStack.last() == Home) {
+                    FloatingActionButtonMenu(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(bottom = padding.calculateBottomPadding()),
+                        expanded = fabMenuExpanded,
+                        button = {
+                            ToggleFloatingActionButton(
+                                modifier = Modifier
+                                    .animateFloatingActionButton(
+                                        visible = true,
+                                        alignment = Alignment.BottomEnd
+                                    ),
+                                checked = fabMenuExpanded,
+                                onCheckedChange = { fabMenuExpanded = it }
+                            ) {
+                                val imageVector by remember {
+                                    derivedStateOf {
+                                        if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add
+                                    }
+                                }
+                                Icon(
+                                    painter = rememberVectorPainter(imageVector),
+                                    contentDescription = null,
+                                    modifier = Modifier.animateIcon({ checkedProgress })
+                                )
+                            }
                         },
-                        icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                        text = { Text("新建项目") }
-                    )
-                    FloatingActionButtonMenuItem(
-                        onClick = {
-                            fabMenuExpanded = false
-                            creationDialog = CreationDialog.Task
-                        },
-                        icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                        text = { Text("新建任务") }
-                    )
-                    FloatingActionButtonMenuItem(
-                        onClick = { fabMenuExpanded = false },
-                        icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                        text = { Text("导入任务") }
-                    )
-                    FloatingActionButtonMenuItem(
-                        onClick = { fabMenuExpanded = false },
-                        icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                        text = { Text("分享") }
-                    )
-                    FloatingActionButtonMenuItem(
-                        onClick = { fabMenuExpanded = false },
-                        icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                        text = { Text("设置") }
-                    )
-                    FloatingActionButtonMenuItem(
-                        onClick = { fabMenuExpanded = false },
-                        icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                        text = { Text("帮助") }
-                    )
+                    ) {
+                        FloatingActionButtonMenuItem(
+                            onClick = {
+                                fabMenuExpanded = false
+                                creationDialog = CreationDialog.Project
+                            },
+                            icon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
+                            text = { Text(stringResource(R.string.fab_new_project)) }
+                        )
+                        FloatingActionButtonMenuItem(
+                            onClick = {
+                                fabMenuExpanded = false
+                                creationDialog = CreationDialog.Task
+                            },
+                            icon = { Icon(Icons.Filled.AddTask, contentDescription = null) },
+                            text = { Text(stringResource(R.string.fab_new_task)) }
+                        )
+                        FloatingActionButtonMenuItem(
+                            onClick = {
+                                fabMenuExpanded = false
+                                backStack.selectTopLevel(Settings)
+                            },
+                            icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                            text = { Text(stringResource(R.string.fab_settings)) }
+                        )
+                    }
                 }
             }
         }
@@ -161,16 +227,26 @@ fun DoitshApp() {
             dialog = dialog,
             onDismiss = { creationDialog = null },
             onCreateTask = { title, description ->
+                creationViewModel.createTask(title, description)
                 creationDialog = null
             },
             onCreateProject = { name, description ->
+                creationViewModel.createProject(name, description)
                 creationDialog = null
             },
         )
     }
 }
 
-enum class AppScreen { Home, Settings }
+/**
+ * Switches top-level destinations without growing the back stack: the current
+ * destination is replaced rather than pushed.
+ */
+private fun NavBackStack<NavKey>.selectTopLevel(key: NavKey) {
+    if (lastOrNull() == key) return
+    clear()
+    add(key)
+}
 
 private enum class CreationDialog { Project, Task }
 
@@ -183,8 +259,13 @@ private fun CreationDialogContent(
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
-    val title = if (dialog == CreationDialog.Project) "新建项目" else "新建任务"
-    val nameLabel = if (dialog == CreationDialog.Project) "项目名称" else "任务标题"
+    val isProject = dialog == CreationDialog.Project
+    val title = stringResource(
+        if (isProject) R.string.dialog_new_project else R.string.dialog_new_task
+    )
+    val nameLabel = stringResource(
+        if (isProject) R.string.label_project_name else R.string.label_task_title
+    )
     val trimmedName = name.trim()
 
     AlertDialog(
@@ -203,7 +284,7 @@ private fun CreationDialogContent(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("描述（可选）") },
+                    label = { Text(stringResource(R.string.label_description_optional)) },
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -214,18 +295,18 @@ private fun CreationDialogContent(
                 enabled = trimmedName.isNotEmpty(),
                 onClick = {
                     val trimmedDescription = description.trim().takeIf { it.isNotEmpty() }
-                    if (dialog == CreationDialog.Project) {
+                    if (isProject) {
                         onCreateProject(trimmedName, trimmedDescription)
                     } else {
                         onCreateTask(trimmedName, trimmedDescription)
                     }
                 },
             ) {
-                Text("保存")
+                Text(stringResource(R.string.action_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }

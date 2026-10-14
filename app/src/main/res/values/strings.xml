@@ -1,3 +1,42 @@
 <resources>
     <string name="app_name">Doitsh</string>
+
+    <!-- Navigation -->
+    <string name="nav_tasks">Tasks</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Home screen -->
+    <string name="home_empty_title">No tasks yet</string>
+    <string name="home_empty_subtitle">Tap + to create your first task</string>
+    <string name="task_completed">Completed</string>
+    <string name="task_not_completed">Not completed</string>
+    <string name="action_delete_task">Delete task</string>
+
+    <!-- FAB menu -->
+    <string name="fab_new_project">New project</string>
+    <string name="fab_new_task">New task</string>
+    <string name="fab_settings">Settings</string>
+
+    <!-- Creation dialog -->
+    <string name="dialog_new_project">New project</string>
+    <string name="dialog_new_task">New task</string>
+    <string name="label_project_name">Project name</string>
+    <string name="label_task_title">Task title</string>
+    <string name="label_description_optional">Description (optional)</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+
+    <!-- Settings screen -->
+    <string name="settings_data_mode">Data mode</string>
+    <string name="settings_mode_local">Local</string>
+    <string name="settings_mode_self_hosted">Self-hosted</string>
+    <string name="settings_switched_local">Switched to Local mode</string>
+    <string name="settings_switched_self_hosted">Switched to Self-hosted mode</string>
+    <string name="settings_server_connection">Server connection</string>
+    <string name="settings_server_url">Server URL</string>
+    <string name="settings_server_url_placeholder">http://192.168.1.100:8080</string>
+    <string name="settings_server_url_help">Point to your NAS or home server running the Doitsh backend.</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Doitsh v%1$s</string>
+    <string name="settings_tagline">Native task management · Material 3 Expressive</string>
 </resources>
