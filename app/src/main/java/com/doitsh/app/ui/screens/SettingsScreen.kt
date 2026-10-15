@@ -27,8 +27,16 @@ fun SettingsScreen(
     var mode by remember { mutableStateOf(settings.dataMode) }
     var serverUrl by remember { mutableStateOf(settings.serverUrl ?: "") }
 
-    val localMessage = stringResource(R.string.settings_switched_local)
-    val selfHostedMessage = stringResource(R.string.settings_switched_self_hosted)
+    // stringResource is a composable call, so every message has to be resolved here:
+    // the SegmentedButton onClick below is a plain lambda, not a composable context.
+    val restartHint = stringResource(R.string.settings_mode_applies_after_restart)
+    val localMessage = stringResource(R.string.settings_switched_local, restartHint)
+    val selfHostedMessage = stringResource(R.string.settings_switched_self_hosted, restartHint)
+    val needsUrlMessage = stringResource(R.string.settings_self_hosted_needs_url)
+
+    // Blank is not an error: the field starts empty. Anything non-blank that is not a
+    // usable URL is.
+    val urlIsInvalid = serverUrl.isNotEmpty() && !isValidServerUrl(serverUrl)
 
     Column(
         modifier = Modifier
@@ -53,8 +61,15 @@ fun SettingsScreen(
                     onClick = {
                         mode = dataMode
                         settings.dataMode = dataMode
+                        // `isConfigured` is read after the write above, so it already
+                        // reflects the mode just selected (SharedPreferences reads are
+                        // synchronous and hit the in-memory map).
                         onShowMessage(
-                            if (dataMode == DataMode.LOCAL) localMessage else selfHostedMessage
+                            when {
+                                dataMode == DataMode.LOCAL -> localMessage
+                                settings.isConfigured -> selfHostedMessage
+                                else -> needsUrlMessage
+                            }
                         )
                     },
                     shape = SegmentedButtonDefaults.itemShape(
@@ -86,6 +101,12 @@ fun SettingsScreen(
                 },
                 label = { Text(stringResource(R.string.settings_server_url)) },
                 placeholder = { Text(stringResource(R.string.settings_server_url_placeholder)) },
+                isError = urlIsInvalid,
+                supportingText = if (urlIsInvalid) {
+                    { Text(stringResource(R.string.settings_server_url_invalid)) }
+                } else {
+                    null
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -115,4 +136,14 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+/**
+ * A server URL is only usable with a scheme and a host — Ktor's
+ * `defaultRequest { url(baseUrl) }` throws on anything else. Deliberately permissive:
+ * it catches the obvious mistakes, it does not police the user.
+ */
+private fun isValidServerUrl(raw: String): Boolean {
+    val uri = runCatching { java.net.URI(raw.trim()) }.getOrNull() ?: return false
+    return (uri.scheme == "http" || uri.scheme == "https") && !uri.host.isNullOrBlank()
 }
