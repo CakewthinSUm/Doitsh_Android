@@ -1,7 +1,6 @@
 package com.doitsh.app.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -13,14 +12,12 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.*
 import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.*
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -33,8 +30,11 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import androidx.window.core.layout.WindowSizeClass
 import com.doitsh.app.R
+import com.doitsh.app.ui.components.DoitshNavigationBar
+import com.doitsh.app.ui.components.DoitshNavigationDestination
+import com.doitsh.app.ui.components.DoitshNavigationRail
+import com.doitsh.app.ui.components.rememberUseNavigationRail
 import com.doitsh.app.ui.screens.CreationViewModel
 import com.doitsh.app.ui.screens.HomeScreen
 import com.doitsh.app.ui.screens.ProjectsScreen
@@ -56,22 +56,15 @@ data object Projects : NavKey
 data object Settings : NavKey
 
 /**
- * A top-level destination, shared by the compact bottom bar and the wide-screen
- * navigation rail so the two containers can never drift apart.
- */
-private class TopLevelDestination(
-    val key: NavKey,
-    val icon: ImageVector,
-    @StringRes val label: Int,
-)
-
-/**
  * Two destinations only: Material 3 Expressive asks a navigation bar to hold
  * three to five, and Settings is reached from the top bar instead.
+ *
+ * Shared by the bottom bar and the wide-screen navigation rail so the two
+ * containers can never drift apart.
  */
 private val TopLevelDestinations = listOf(
-    TopLevelDestination(Home, Icons.Filled.Home, R.string.nav_tasks),
-    TopLevelDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects),
+    DoitshNavigationDestination(Home, Icons.Filled.Home, R.string.nav_tasks),
+    DoitshNavigationDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects),
 )
 
 @Composable
@@ -84,27 +77,20 @@ fun DoitshApp() {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // The one adaptive decision in the app: below the medium width breakpoint the
-    // top-level destinations live in a bottom bar, at or above it in a side rail.
-    // The app itself stays single-pane.
-    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
-    val useNavigationRail =
-        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+    // The one adaptive decision in the app, and it is the Material adaptive
+    // navigation suite's own rule rather than an ad-hoc breakpoint — see
+    // rememberUseNavigationRail. The app itself stays single-pane either way.
+    val useNavigationRail = rememberUseNavigationRail()
 
     BackHandler(fabMenuExpanded) { fabMenuExpanded = false }
 
     Row(modifier = Modifier.fillMaxSize()) {
         if (useNavigationRail) {
-            NavigationRail {
-                TopLevelDestinations.forEach { destination ->
-                    NavigationRailItem(
-                        selected = backStack.last() == destination.key,
-                        onClick = { backStack.selectTopLevel(destination.key) },
-                        icon = { Icon(destination.icon, contentDescription = null) },
-                        label = { Text(stringResource(destination.label)) }
-                    )
-                }
-            }
+            DoitshNavigationRail(
+                destinations = TopLevelDestinations,
+                selectedKey = backStack.last(),
+                onSelect = { backStack.selectTopLevel(it) },
+            )
         }
 
         Scaffold(
@@ -145,16 +131,11 @@ fun DoitshApp() {
             },
             bottomBar = {
                 if (!useNavigationRail) {
-                    ShortNavigationBar {
-                        TopLevelDestinations.forEach { destination ->
-                            ShortNavigationBarItem(
-                                selected = backStack.last() == destination.key,
-                                onClick = { backStack.selectTopLevel(destination.key) },
-                                icon = { Icon(destination.icon, contentDescription = null) },
-                                label = { Text(stringResource(destination.label)) }
-                            )
-                        }
-                    }
+                    DoitshNavigationBar(
+                        destinations = TopLevelDestinations,
+                        selectedKey = backStack.last(),
+                        onSelect = { backStack.selectTopLevel(it) },
+                    )
                 }
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },

@@ -47,8 +47,14 @@ All dependency versions live in one place: [`gradle/libs.versions.toml`](gradle/
 - **DI**: Hilt 2.60.1
 - **Networking**: Ktor client 3.6.0 with kotlinx.serialization
 - **Async**: Kotlin Coroutines 1.11.0 + Flow
-- **Adaptive**: Material 3 Adaptive 1.3.0 — `currentWindowAdaptiveInfoV2()` drives a
-  `NavigationRail` at medium width and above, falling back to `ShortNavigationBar`
+- **Adaptive**: Material 3 Adaptive 1.3.0 — `currentWindowAdaptiveInfoV2()` drives the
+  choice, using the adaptive navigation suite's own rule
+  (`NavigationSuiteScaffoldDefaults.navigationSuiteType`) rather than an ad-hoc
+  breakpoint. `ShortNavigationBar` holds the top-level destinations unless the window
+  is at least medium width **and** medium height and not in tabletop posture, in which
+  case `WideNavigationRail` takes over. A phone in landscape stays on the bar: it is
+  wide but its height is compact, which is the `ShortNavigationBarMedium` case —
+  icons move beside their labels, but the bar stays at the bottom
 - **Also on the classpath** (added, not yet adopted by feature code): DataStore 1.2.1,
   WorkManager 2.12.0, Paging 3.5.3, Coil 3.6.3,
   ProfileInstaller 1.4.1, OkHttp 5.5.0
@@ -125,7 +131,8 @@ The server starts on `http://0.0.0.0:8080`.
 - Task filtering: All / Today / This Week
 - Material 3 Expressive design with a floating action button menu
 - Swipe-to-dismiss task deletion, plus a per-row delete button
-- Adaptive navigation: `NavigationRail` on medium-and-wider windows, `ShortNavigationBar` below
+- Adaptive navigation: `ShortNavigationBar` by default, `WideNavigationRail` only on
+  windows that are at least medium width and height (and not half-folded)
 - Navigation 3 back stack: `Home` (Tasks) and `Projects` in the bar, `Settings` pushed from a top bar action
 - All user-facing strings in `res/values/strings.xml` (English)
 
