@@ -26,11 +26,15 @@ import androidx.window.core.layout.WindowSizeClass
  * A top-level destination, shared by the bottom bar and the navigation rail so
  * the two containers can never drift apart.
  *
- * A destination carries its own [content] as well as its icon and label, so the
- * list of them is the single place a navigation container is described: adding a
- * button means adding one entry here, and the bar, the rail, the ordering that
- * drives the transition direction, and the entry provider all follow from it.
+ * A destination carries its own [title] and [content] as well as its icon and
+ * label, so the list of them is the single place a navigation container is
+ * described: adding a button means adding one entry here, and the bar, the rail,
+ * the ordering that drives the transition direction, and the entry provider all
+ * follow from it.
  *
+ * @param title the app bar title while this destination is showing. Distinct from
+ *   [label], which is the short caption under the bar icon — the Tasks destination
+ *   is labelled "Tasks" but titles the bar with the app name.
  * @param content what to render for this destination, given the content padding of
  *   the surrounding scaffold. A `@Composable (PaddingValues) -> Unit` rather than a
  *   `@Composable () -> Unit` because every screen here needs that padding to clear
@@ -40,6 +44,7 @@ class DoitshNavigationDestination(
     val key: NavKey,
     val icon: ImageVector,
     @StringRes val label: Int,
+    @StringRes val title: Int,
     val content: @Composable (PaddingValues) -> Unit,
 )
 

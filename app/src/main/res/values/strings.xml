@@ -29,6 +29,7 @@
     <string name="label_description_optional">Description (optional)</string>
     <string name="action_save">Save</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_back">Back</string>
 
     <!-- Settings screen -->
     <string name="settings_data_mode">Data mode</string>
