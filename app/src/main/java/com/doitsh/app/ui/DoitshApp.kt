@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.*
 import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -36,6 +37,7 @@ import androidx.window.core.layout.WindowSizeClass
 import com.doitsh.app.R
 import com.doitsh.app.ui.screens.CreationViewModel
 import com.doitsh.app.ui.screens.HomeScreen
+import com.doitsh.app.ui.screens.ProjectsScreen
 import com.doitsh.app.ui.screens.SettingsScreen
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -46,6 +48,9 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data object Home : NavKey
+
+@Serializable
+data object Projects : NavKey
 
 @Serializable
 data object Settings : NavKey
@@ -60,9 +65,13 @@ private class TopLevelDestination(
     @StringRes val label: Int,
 )
 
+/**
+ * Two destinations only: Material 3 Expressive asks a navigation bar to hold
+ * three to five, and Settings is reached from the top bar instead.
+ */
 private val TopLevelDestinations = listOf(
     TopLevelDestination(Home, Icons.Filled.Home, R.string.nav_tasks),
-    TopLevelDestination(Settings, Icons.Filled.Settings, R.string.nav_settings),
+    TopLevelDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects),
 )
 
 @Composable
@@ -108,10 +117,23 @@ fun DoitshApp() {
                     title = {
                         Text(
                             text = when (backStack.last()) {
+                                Projects -> stringResource(R.string.nav_projects)
                                 Settings -> stringResource(R.string.nav_settings)
                                 else -> stringResource(R.string.app_name)
                             }
                         )
+                    },
+                    actions = {
+                        // Settings is not a top-level destination — it is reached from
+                        // here, which keeps the navigation bar at two items.
+                        if (backStack.last() != Settings) {
+                            IconButton(onClick = { backStack.navigateTo(Settings) }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = stringResource(R.string.nav_settings)
+                                )
+                            }
+                        }
                     },
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -143,6 +165,12 @@ fun DoitshApp() {
                     modifier = Modifier.fillMaxSize(),
                     backStack = backStack,
                     onBack = { backStack.removeLastOrNull() },
+                    // NavDisplay's built-in specs are a hard-coded 700ms cross-fade
+                    // that ignores MotionScheme; these use the theme's Expressive
+                    // motion instead. See NavTransitions.kt.
+                    transitionSpec = expressiveForwardTransition(),
+                    popTransitionSpec = expressivePopTransition(),
+                    predictivePopTransitionSpec = expressivePredictivePopTransition(),
                     entryDecorators = listOf(
                         // Saves each entry's `rememberSaveable` state, and gives every
                         // entry its own ViewModelStore so ViewModels are scoped to the
@@ -152,6 +180,7 @@ fun DoitshApp() {
                     ),
                     entryProvider = entryProvider {
                         entry<Home> { HomeScreen(contentPadding = padding) }
+                        entry<Projects> { ProjectsScreen(contentPadding = padding) }
                         entry<Settings> {
                             SettingsScreen(
                                 contentPadding = padding,
@@ -163,7 +192,9 @@ fun DoitshApp() {
                     }
                 )
 
-                if (backStack.last() == Home) {
+                // Both top-level destinations create things, so the FAB menu is not
+                // gated on Home alone.
+                if (backStack.last() != Settings) {
                     FloatingActionButtonMenu(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -208,14 +239,6 @@ fun DoitshApp() {
                             icon = { Icon(Icons.Filled.AddTask, contentDescription = null) },
                             text = { Text(stringResource(R.string.fab_new_task)) }
                         )
-                        FloatingActionButtonMenuItem(
-                            onClick = {
-                                fabMenuExpanded = false
-                                backStack.selectTopLevel(Settings)
-                            },
-                            icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                            text = { Text(stringResource(R.string.fab_settings)) }
-                        )
                     }
                 }
             }
@@ -245,6 +268,17 @@ fun DoitshApp() {
 private fun NavBackStack<NavKey>.selectTopLevel(key: NavKey) {
     if (lastOrNull() == key) return
     clear()
+    add(key)
+}
+
+/**
+ * Opens a destination on top of the current one, so system back returns to where
+ * the user came from. Settings uses this rather than [selectTopLevel]: it is
+ * reached from a top bar action, not from the navigation bar, and clearing the
+ * stack there would make back exit the app instead of returning to the list.
+ */
+private fun NavBackStack<NavKey>.navigateTo(key: NavKey) {
+    if (lastOrNull() == key) return
     add(key)
 }
 
