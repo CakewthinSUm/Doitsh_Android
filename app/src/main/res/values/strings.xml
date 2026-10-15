@@ -34,12 +34,15 @@
     <string name="settings_data_mode">Data mode</string>
     <string name="settings_mode_local">Local</string>
     <string name="settings_mode_self_hosted">Self-hosted</string>
-    <string name="settings_switched_local">Switched to Local mode</string>
-    <string name="settings_switched_self_hosted">Switched to Self-hosted mode</string>
+    <string name="settings_switched_local">Switched to Local mode. %1$s</string>
+    <string name="settings_switched_self_hosted">Switched to Self-hosted mode. %1$s</string>
+    <string name="settings_mode_applies_after_restart">Restart the app to apply.</string>
+    <string name="settings_self_hosted_needs_url">Enter a server URL to use Self-hosted mode. Tasks stay on this device until you do.</string>
     <string name="settings_server_connection">Server connection</string>
     <string name="settings_server_url">Server URL</string>
     <string name="settings_server_url_placeholder">http://192.168.1.100:8080</string>
     <string name="settings_server_url_help">Point to your NAS or home server running the Doitsh backend.</string>
+    <string name="settings_server_url_invalid">Enter a full URL including http:// or https://</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Doitsh v%1$s</string>
     <string name="settings_tagline">Native task management · Material 3 Expressive</string>

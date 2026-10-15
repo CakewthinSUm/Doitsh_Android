@@ -26,20 +26,36 @@ fun SettingsScreen(
     var mode by remember { mutableStateOf(settings.dataMode) }
     var serverUrl by remember { mutableStateOf(settings.serverUrl ?: "") }
 
-    val localMessage = stringResource(R.string.settings_switched_local)
-    val selfHostedMessage = stringResource(R.string.settings_switched_self_hosted)
-    // Resolved here rather than inside ButtonGroup: its content lambda is a plain
-    // ButtonGroupScope.() -> Unit, not @Composable, so stringResource cannot be
-    // called from within it.
+    // stringResource is a composable call, so every message has to be resolved here:
+    // the onCheckedChange lambdas below are plain lambdas, not composable contexts.
+    val restartHint = stringResource(R.string.settings_mode_applies_after_restart)
+    val localMessage = stringResource(R.string.settings_switched_local, restartHint)
+    val selfHostedMessage = stringResource(R.string.settings_switched_self_hosted, restartHint)
+    val needsUrlMessage = stringResource(R.string.settings_self_hosted_needs_url)
+    // Same reason: ButtonGroup's content lambda is a plain ButtonGroupScope.() -> Unit.
     val modeLabels = mapOf(
         DataMode.LOCAL to stringResource(R.string.settings_mode_local),
         DataMode.SELF_HOSTED to stringResource(R.string.settings_mode_self_hosted)
     )
 
+    // Blank is not an error: the field starts empty. Anything non-blank that is not a
+    // usable URL is.
+    val urlIsInvalid = serverUrl.isNotEmpty() && !isValidServerUrl(serverUrl)
+
     fun select(dataMode: DataMode) {
         mode = dataMode
         settings.dataMode = dataMode
-        onShowMessage(if (dataMode == DataMode.LOCAL) localMessage else selfHostedMessage)
+        // `isConfigured` is read after the write above, so it already reflects the mode
+        // just selected (SharedPreferences reads are synchronous and hit the in-memory
+        // map). It is also read only here, inside a callback — never during composition —
+        // so its lack of Compose state does not matter.
+        onShowMessage(
+            when {
+                dataMode == DataMode.LOCAL -> localMessage
+                settings.isConfigured -> selfHostedMessage
+                else -> needsUrlMessage
+            }
+        )
     }
 
     // Same contentPadding convention as Home/Projects, minus the extra FAB clearance:
@@ -83,6 +99,12 @@ fun SettingsScreen(
                         },
                         label = { Text(stringResource(R.string.settings_server_url)) },
                         placeholder = { Text(stringResource(R.string.settings_server_url_placeholder)) },
+                        isError = urlIsInvalid,
+                        supportingText = if (urlIsInvalid) {
+                            { Text(stringResource(R.string.settings_server_url_invalid)) }
+                        } else {
+                            null
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -142,4 +164,14 @@ private fun SettingsSection(
             )
         }
     }
+}
+
+/**
+ * A server URL is only usable with a scheme and a host — Ktor's
+ * `defaultRequest { url(baseUrl) }` throws on anything else. Deliberately permissive:
+ * it catches the obvious mistakes, it does not police the user.
+ */
+private fun isValidServerUrl(raw: String): Boolean {
+    val uri = runCatching { java.net.URI(raw.trim()) }.getOrNull() ?: return false
+    return (uri.scheme == "http" || uri.scheme == "https") && !uri.host.isNullOrBlank()
 }
