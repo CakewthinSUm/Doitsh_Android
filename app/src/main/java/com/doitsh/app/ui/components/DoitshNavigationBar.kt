@@ -1,6 +1,7 @@
 package com.doitsh.app.ui.components
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationItemColors
@@ -24,11 +25,22 @@ import androidx.window.core.layout.WindowSizeClass
 /**
  * A top-level destination, shared by the bottom bar and the navigation rail so
  * the two containers can never drift apart.
+ *
+ * A destination carries its own [content] as well as its icon and label, so the
+ * list of them is the single place a navigation container is described: adding a
+ * button means adding one entry here, and the bar, the rail, the ordering that
+ * drives the transition direction, and the entry provider all follow from it.
+ *
+ * @param content what to render for this destination, given the content padding of
+ *   the surrounding scaffold. A `@Composable (PaddingValues) -> Unit` rather than a
+ *   `@Composable () -> Unit` because every screen here needs that padding to clear
+ *   the top bar and the navigation container.
  */
 class DoitshNavigationDestination(
     val key: NavKey,
     val icon: ImageVector,
     @StringRes val label: Int,
+    val content: @Composable (PaddingValues) -> Unit,
 )
 
 /**

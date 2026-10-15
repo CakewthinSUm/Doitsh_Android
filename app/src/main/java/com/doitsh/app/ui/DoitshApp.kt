@@ -63,8 +63,12 @@ data object Settings : NavKey
  * containers can never drift apart.
  */
 private val TopLevelDestinations = listOf(
-    DoitshNavigationDestination(Home, Icons.Filled.Home, R.string.nav_tasks),
-    DoitshNavigationDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects),
+    DoitshNavigationDestination(Home, Icons.Filled.Home, R.string.nav_tasks) { padding ->
+        HomeScreen(contentPadding = padding)
+    },
+    DoitshNavigationDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects) { padding ->
+        ProjectsScreen(contentPadding = padding)
+    },
 )
 
 @Composable
@@ -149,7 +153,7 @@ fun DoitshApp() {
                     // NavDisplay's built-in specs are a hard-coded 700ms cross-fade
                     // that ignores MotionScheme; these use the theme's Expressive
                     // motion instead. See NavTransitions.kt.
-                    transitionSpec = expressiveForwardTransition(),
+                    transitionSpec = expressiveSceneTransition(),
                     popTransitionSpec = expressivePopTransition(),
                     predictivePopTransitionSpec = expressivePredictivePopTransition(),
                     entryDecorators = listOf(
@@ -160,8 +164,18 @@ fun DoitshApp() {
                         rememberViewModelStoreNavEntryDecorator()
                     ),
                     entryProvider = entryProvider {
-                        entry<Home> { HomeScreen(contentPadding = padding) }
-                        entry<Projects> { ProjectsScreen(contentPadding = padding) }
+                        // Each top-level destination publishes its position in the bar as
+                        // metadata, which is how the transitions learn which way to slide
+                        // — see navigationSlideDirection. Position and content both come
+                        // from the destination list, so adding, reordering or replacing a
+                        // bar button needs no change here. Settings publishes no position:
+                        // it is pushed onto the stack, not selected from the container.
+                        TopLevelDestinations.forEachIndexed { index, destination ->
+                            entry(
+                                key = destination.key,
+                                metadata = navigationOrder(index),
+                            ) { destination.content(padding) }
+                        }
                         entry<Settings> {
                             SettingsScreen(
                                 contentPadding = padding,
