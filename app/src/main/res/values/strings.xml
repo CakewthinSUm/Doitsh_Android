@@ -3,6 +3,7 @@
 
     <!-- Navigation -->
     <string name="nav_tasks">Tasks</string>
+    <string name="nav_projects">Projects</string>
     <string name="nav_settings">Settings</string>
 
     <!-- Home screen -->
@@ -15,7 +16,10 @@
     <!-- FAB menu -->
     <string name="fab_new_project">New project</string>
     <string name="fab_new_task">New task</string>
-    <string name="fab_settings">Settings</string>
+
+    <!-- Projects screen -->
+    <string name="projects_empty_title">No projects yet</string>
+    <string name="projects_empty_subtitle">Tap + to create your first project</string>
 
     <!-- Creation dialog -->
     <string name="dialog_new_project">New project</string>

@@ -125,8 +125,8 @@ The server starts on `http://0.0.0.0:8080`.
 - Task filtering: All / Today / This Week
 - Material 3 Expressive design with a floating action button menu
 - Swipe-to-dismiss task deletion, plus a per-row delete button
-- Adaptive navigation: `NavigationRail` on medium-and-wider windows, bottom bar below
-- Navigation 3 back stack (Home / Settings)
+- Adaptive navigation: `NavigationRail` on medium-and-wider windows, `ShortNavigationBar` below
+- Navigation 3 back stack: `Home` (Tasks) and `Projects` in the bar, `Settings` pushed from a top bar action
 - All user-facing strings in `res/values/strings.xml` (English)
 
 ## Known issues
