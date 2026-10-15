@@ -1,6 +1,7 @@
 package com.doitsh.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -206,15 +207,17 @@ fun DoitshApp() {
                             entry(
                                 key = destination.key,
                                 metadata = navigationOrder(index),
-                            ) { destination.content(padding) }
+                            ) { SceneSurface { destination.content(padding) } }
                         }
                         entry<Settings> {
-                            SettingsScreen(
-                                contentPadding = padding,
-                                onShowMessage = { message ->
-                                    scope.launch { snackbarHostState.showSnackbar(message) }
-                                }
-                            )
+                            SceneSurface {
+                                SettingsScreen(
+                                    contentPadding = padding,
+                                    onShowMessage = { message ->
+                                        scope.launch { snackbarHostState.showSnackbar(message) }
+                                    }
+                                )
+                            }
                         }
                     }
                 )
@@ -286,6 +289,47 @@ fun DoitshApp() {
                 creationDialog = null
             },
         )
+    }
+}
+
+/**
+ * The opaque backdrop each destination is drawn on.
+ *
+ * NavDisplay renders the outgoing and incoming scenes *simultaneously* and slides them
+ * past each other, so for the length of every transition two screens occupy the same
+ * frame. Each destination here is a `LazyColumn` with no background of its own, and the
+ * single `Scaffold` above draws its surface once, behind both of them — so without this
+ * the two screens are composited straight onto each other and their text superimposes.
+ *
+ * That is not a cosmetic detail, it is what the reported "predictive back" bug actually
+ * was. Home's "No tasks yet" showing through a Settings page that had not moved looked
+ * like a cross-fade, and a screen apparently mid-fade reads as a scale-down; both were
+ * the same missing backdrop. It also made the drag look inconsistent, because how legible
+ * the bleed-through is depends on how much of the two screens happens to overlap at the
+ * fraction the user released at.
+ *
+ * Painting the theme's `background` — the same colour the `Scaffold` would have drawn
+ * under a single screen — makes the top scene cover the one behind it, which is what makes
+ * the transitions read as one screen replacing another. It has to be inside the scene
+ * rather than around the NavDisplay: a single backdrop behind both scenes is exactly the
+ * arrangement that does not work.
+ *
+ * Applied per entry rather than through `SceneDecoratorStrategy`, which is the other way
+ * to wrap every scene. A decorator has to return a new `Scene`, and Nav3 identifies scenes
+ * for its transitions by class plus key (`AnimatedSceneKey`) — so a decorator replaces the
+ * identity that `SeekableTransitionState.seekTo` matches a predictive drag's previous scene
+ * against. Wrapping the content leaves that bookkeeping untouched, and the cost is only
+ * that a new destination has to be added inside this same `entryProvider` block, where the
+ * other entries already are.
+ */
+@Composable
+private fun SceneSurface(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        content()
     }
 }
 
