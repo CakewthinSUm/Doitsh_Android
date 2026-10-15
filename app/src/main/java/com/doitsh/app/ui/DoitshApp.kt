@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.Close
@@ -17,7 +18,6 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.*
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -80,7 +80,6 @@ fun DoitshApp() {
     var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var creationDialog by remember { mutableStateOf<CreationDialog?>(null) }
     val creationViewModel: CreationViewModel = hiltViewModel()
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -107,81 +106,104 @@ fun DoitshApp() {
             }
         }
 
-        Scaffold(
+        // Each destination brings its own Scaffold rather than sharing one around the
+        // NavDisplay. That is what makes Settings animate as a whole page: its top bar
+        // is inside the scene, so it is the *card* that recedes during a predictive
+        // back drag, not just the body under a fixed app bar. It also lets Settings
+        // carry a back arrow, which a shared bar could not — the shared bar has no way
+        // to know whether the current destination wants a back affordance or a
+        // settings action.
+        NavDisplay(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxHeight()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = when (backStack.last()) {
-                                Projects -> stringResource(R.string.nav_projects)
-                                Settings -> stringResource(R.string.nav_settings)
-                                else -> stringResource(R.string.app_name)
-                            }
-                        )
-                    },
-                    actions = {
-                        // Settings is not a top-level destination — it is reached from
-                        // here, which keeps the navigation bar at two items.
-                        if (backStack.last() != Settings) {
-                            IconButton(onClick = { backStack.navigateTo(Settings) }) {
-                                Icon(
-                                    imageVector = Icons.Filled.Settings,
-                                    contentDescription = stringResource(R.string.nav_settings)
+                .fillMaxHeight(),
+            backStack = backStack,
+            onBack = { backStack.removeLastOrNull() },
+            // NavDisplay's built-in specs are a hard-coded 700ms cross-fade that
+            // ignores MotionScheme; these use the theme's Expressive motion instead.
+            // See NavTransitions.kt.
+            transitionSpec = expressiveForwardTransition(),
+            popTransitionSpec = expressivePopTransition(),
+            predictivePopTransitionSpec = expressivePredictivePopTransition(),
+            entryDecorators = listOf(
+                // Saves each entry's `rememberSaveable` state, and gives every
+                // entry its own ViewModelStore so ViewModels are scoped to the
+                // destination rather than to the Activity.
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberViewModelStoreNavEntryDecorator()
+            ),
+            entryProvider = entryProvider {
+                entry<Home> {
+                    PredictiveBackCard(
+                        isTopDestination = backStack.last() == Home,
+                        isInBackStack = Home in backStack,
+                    ) {
+                        TopLevelScaffold(
+                            title = stringResource(R.string.app_name),
+                            currentDestination = Home,
+                            useNavigationRail = useNavigationRail,
+                            snackbarHostState = snackbarHostState,
+                            onSelect = { backStack.selectTopLevel(it) },
+                            onOpenSettings = { backStack.navigateTo(Settings) },
+                            floatingActionButton = {
+                                CreationFab(
+                                    expanded = fabMenuExpanded,
+                                    onExpandedChange = { fabMenuExpanded = it },
+                                    onCreateProject = {
+                                        fabMenuExpanded = false
+                                        creationDialog = CreationDialog.Project
+                                    },
+                                    onCreateTask = {
+                                        fabMenuExpanded = false
+                                        creationDialog = CreationDialog.Task
+                                    }
                                 )
                             }
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                    ),
-                    windowInsets = WindowInsets.statusBars
-                )
-            },
-            bottomBar = {
-                if (!useNavigationRail) {
-                    ShortNavigationBar {
-                        TopLevelDestinations.forEach { destination ->
-                            ShortNavigationBarItem(
-                                selected = backStack.last() == destination.key,
-                                onClick = { backStack.selectTopLevel(destination.key) },
-                                icon = { Icon(destination.icon, contentDescription = null) },
-                                label = { Text(stringResource(destination.label)) }
-                            )
+                        ) { padding ->
+                            HomeScreen(contentPadding = padding)
                         }
                     }
                 }
-            },
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            floatingActionButton = {}
-        ) { padding ->
-            Box(modifier = Modifier.fillMaxSize()) {
-                NavDisplay(
-                    modifier = Modifier.fillMaxSize(),
-                    backStack = backStack,
-                    onBack = { backStack.removeLastOrNull() },
-                    // NavDisplay's built-in specs are a hard-coded 700ms cross-fade
-                    // that ignores MotionScheme; these use the theme's Expressive
-                    // motion instead. See NavTransitions.kt.
-                    transitionSpec = expressiveForwardTransition(),
-                    popTransitionSpec = expressivePopTransition(),
-                    predictivePopTransitionSpec = expressivePredictivePopTransition(),
-                    entryDecorators = listOf(
-                        // Saves each entry's `rememberSaveable` state, and gives every
-                        // entry its own ViewModelStore so ViewModels are scoped to the
-                        // destination rather than to the Activity.
-                        rememberSaveableStateHolderNavEntryDecorator(),
-                        rememberViewModelStoreNavEntryDecorator()
-                    ),
-                    entryProvider = entryProvider {
-                        entry<Home> { HomeScreen(contentPadding = padding) }
-                        entry<Projects> { ProjectsScreen(contentPadding = padding) }
-                        entry<Settings> {
+                entry<Projects> {
+                    PredictiveBackCard(
+                        isTopDestination = backStack.last() == Projects,
+                        isInBackStack = Projects in backStack,
+                    ) {
+                        TopLevelScaffold(
+                            title = stringResource(R.string.nav_projects),
+                            currentDestination = Projects,
+                            useNavigationRail = useNavigationRail,
+                            snackbarHostState = snackbarHostState,
+                            onSelect = { backStack.selectTopLevel(it) },
+                            onOpenSettings = { backStack.navigateTo(Settings) },
+                            floatingActionButton = {
+                                CreationFab(
+                                    expanded = fabMenuExpanded,
+                                    onExpandedChange = { fabMenuExpanded = it },
+                                    onCreateProject = {
+                                        fabMenuExpanded = false
+                                        creationDialog = CreationDialog.Project
+                                    },
+                                    onCreateTask = {
+                                        fabMenuExpanded = false
+                                        creationDialog = CreationDialog.Task
+                                    }
+                                )
+                            }
+                        ) { padding ->
+                            ProjectsScreen(contentPadding = padding)
+                        }
+                    }
+                }
+                entry<Settings> {
+                    PredictiveBackCard(
+                        isTopDestination = backStack.last() == Settings,
+                        isInBackStack = Settings in backStack,
+                    ) {
+                        SettingsScaffold(
+                            snackbarHostState = snackbarHostState,
+                            onBack = { backStack.removeLastOrNull() }
+                        ) { padding ->
                             SettingsScreen(
                                 contentPadding = padding,
                                 onShowMessage = { message ->
@@ -190,59 +212,9 @@ fun DoitshApp() {
                             )
                         }
                     }
-                )
-
-                // Both top-level destinations create things, so the FAB menu is not
-                // gated on Home alone.
-                if (backStack.last() != Settings) {
-                    FloatingActionButtonMenu(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(bottom = padding.calculateBottomPadding()),
-                        expanded = fabMenuExpanded,
-                        button = {
-                            ToggleFloatingActionButton(
-                                modifier = Modifier
-                                    .animateFloatingActionButton(
-                                        visible = true,
-                                        alignment = Alignment.BottomEnd
-                                    ),
-                                checked = fabMenuExpanded,
-                                onCheckedChange = { fabMenuExpanded = it }
-                            ) {
-                                val imageVector by remember {
-                                    derivedStateOf {
-                                        if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add
-                                    }
-                                }
-                                Icon(
-                                    painter = rememberVectorPainter(imageVector),
-                                    contentDescription = null,
-                                    modifier = Modifier.animateIcon({ checkedProgress })
-                                )
-                            }
-                        },
-                    ) {
-                        FloatingActionButtonMenuItem(
-                            onClick = {
-                                fabMenuExpanded = false
-                                creationDialog = CreationDialog.Project
-                            },
-                            icon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
-                            text = { Text(stringResource(R.string.fab_new_project)) }
-                        )
-                        FloatingActionButtonMenuItem(
-                            onClick = {
-                                fabMenuExpanded = false
-                                creationDialog = CreationDialog.Task
-                            },
-                            icon = { Icon(Icons.Filled.AddTask, contentDescription = null) },
-                            text = { Text(stringResource(R.string.fab_new_task)) }
-                        )
-                    }
                 }
             }
-        }
+        )
     }
 
     creationDialog?.let { dialog ->
@@ -257,6 +229,150 @@ fun DoitshApp() {
                 creationViewModel.createProject(name, description)
                 creationDialog = null
             },
+        )
+    }
+}
+
+/**
+ * The chrome shared by the two top-level destinations: app bar with the Settings
+ * action, the adaptive navigation container, and the creation FAB.
+ */
+@Composable
+private fun TopLevelScaffold(
+    title: String,
+    currentDestination: NavKey,
+    useNavigationRail: Boolean,
+    snackbarHostState: SnackbarHostState,
+    onSelect: (NavKey) -> Unit,
+    onOpenSettings: () -> Unit,
+    floatingActionButton: @Composable () -> Unit,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = { Text(title) },
+                actions = {
+                    // Settings is not a top-level destination — it is reached from
+                    // here, which keeps the navigation bar at two items.
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = stringResource(R.string.nav_settings)
+                        )
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                windowInsets = WindowInsets.statusBars
+            )
+        },
+        bottomBar = {
+            if (!useNavigationRail) {
+                ShortNavigationBar {
+                    TopLevelDestinations.forEach { destination ->
+                        ShortNavigationBarItem(
+                            selected = currentDestination == destination.key,
+                            onClick = { onSelect(destination.key) },
+                            icon = { Icon(destination.icon, contentDescription = null) },
+                            label = { Text(stringResource(destination.label)) }
+                        )
+                    }
+                }
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = floatingActionButton,
+        content = content
+    )
+}
+
+/**
+ * Settings as a full page of its own: a back arrow and no bottom bar, so it reads as
+ * a screen pushed on top of the app rather than a tab inside it. The back arrow is
+ * the affordance the shared bar could not offer, and it is what the system back
+ * gesture's predictive animation previews.
+ */
+@Composable
+private fun SettingsScaffold(
+    snackbarHostState: SnackbarHostState,
+    onBack: () -> Unit,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.nav_settings)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                windowInsets = WindowInsets.statusBars
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        content = content
+    )
+}
+
+/**
+ * The Expressive FAB menu. It lives in the Scaffold's `floatingActionButton` slot
+ * rather than in a Box over the content, so the Scaffold keeps it clear of the
+ * bottom bar and it travels with the page during navigation.
+ */
+@Composable
+private fun CreationFab(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onCreateProject: () -> Unit,
+    onCreateTask: () -> Unit,
+) {
+    FloatingActionButtonMenu(
+        expanded = expanded,
+        button = {
+            ToggleFloatingActionButton(
+                checked = expanded,
+                onCheckedChange = onExpandedChange
+            ) {
+                val imageVector by remember {
+                    derivedStateOf {
+                        if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add
+                    }
+                }
+                Icon(
+                    painter = rememberVectorPainter(imageVector),
+                    contentDescription = null,
+                    modifier = Modifier.animateIcon({ checkedProgress })
+                )
+            }
+        },
+    ) {
+        FloatingActionButtonMenuItem(
+            onClick = onCreateProject,
+            icon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
+            text = { Text(stringResource(R.string.fab_new_project)) }
+        )
+        FloatingActionButtonMenuItem(
+            onClick = onCreateTask,
+            icon = { Icon(Icons.Filled.AddTask, contentDescription = null) },
+            text = { Text(stringResource(R.string.fab_new_task)) }
         )
     }
 }
