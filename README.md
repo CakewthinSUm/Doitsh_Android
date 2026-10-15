@@ -134,6 +134,8 @@ The server starts on `http://0.0.0.0:8080`.
 - Adaptive navigation: `ShortNavigationBar` by default, `WideNavigationRail` only on
   windows that are at least medium width and height (and not half-folded)
 - Navigation 3 back stack: `Home` (Tasks) and `Projects` in the bar, `Settings` pushed from a top bar action
+  (the bar and rail belong to the top level, so they are hidden while Settings — a page one level up —
+  is open, and Settings shows a back arrow in the top bar instead)
 - All user-facing strings in `res/values/strings.xml` (English)
 
 ## Known issues

@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.Close
@@ -72,6 +73,18 @@ private val TopLevelDestinations = listOf(
     },
 )
 
+/**
+ * The keys of those destinations, so "is this page one of the bar's own?" is a lookup
+ * rather than a comparison against a named page.
+ *
+ * This is the hierarchy the navigation container belongs to. Settings is reached from
+ * the top bar and pushed on top of the top-level pages rather than being one of them,
+ * so while it is open the bar would be showing a selected destination that no longer
+ * matches the screen — and tapping it would throw the page away. The shell therefore
+ * renders its chrome for the top level only.
+ */
+private val TopLevelKeys: Set<NavKey> = TopLevelDestinations.map { it.key }.toSet()
+
 @Composable
 fun DoitshApp() {
     val backStack = rememberNavBackStack(Home)
@@ -87,10 +100,16 @@ fun DoitshApp() {
     // rememberUseNavigationRail. The app itself stays single-pane either way.
     val useNavigationRail = rememberUseNavigationRail()
 
+    // Read once per frame and passed to the three places that hang off the top level
+    // (the rail, the bottom bar, the FAB menu), so they can never disagree about which
+    // page is on screen. Settings is not top level: it is a page pushed on top, and the
+    // navigation container belongs to the level underneath it.
+    val isTopLevel = backStack.last() in TopLevelKeys
+
     BackHandler(fabMenuExpanded) { fabMenuExpanded = false }
 
     Row(modifier = Modifier.fillMaxSize()) {
-        if (useNavigationRail) {
+        if (useNavigationRail && isTopLevel) {
             DoitshNavigationRail(
                 destinations = TopLevelDestinations,
                 selectedKey = backStack.last(),
@@ -114,10 +133,23 @@ fun DoitshApp() {
                             }
                         )
                     },
+                    // A pushed page carries its own way back, because the navigation
+                    // container that would otherwise show where it sits in the app is
+                    // hidden while it is open.
+                    navigationIcon = {
+                        if (!isTopLevel) {
+                            IconButton(onClick = { backStack.removeLastOrNull() }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.action_back)
+                                )
+                            }
+                        }
+                    },
                     actions = {
                         // Settings is not a top-level destination — it is reached from
                         // here, which keeps the navigation bar at two items.
-                        if (backStack.last() != Settings) {
+                        if (isTopLevel) {
                             IconButton(onClick = { backStack.navigateTo(Settings) }) {
                                 Icon(
                                     imageVector = Icons.Filled.Settings,
@@ -135,7 +167,7 @@ fun DoitshApp() {
                 )
             },
             bottomBar = {
-                if (!useNavigationRail) {
+                if (!useNavigationRail && isTopLevel) {
                     DoitshNavigationBar(
                         destinations = TopLevelDestinations,
                         selectedKey = backStack.last(),
@@ -191,8 +223,9 @@ fun DoitshApp() {
                 )
 
                 // Both top-level destinations create things, so the FAB menu is not
-                // gated on Home alone.
-                if (backStack.last() != Settings) {
+                // gated on Home alone — but it does belong to the top level, for the
+                // same reason the bar does.
+                if (isTopLevel) {
                     FloatingActionButtonMenu(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
