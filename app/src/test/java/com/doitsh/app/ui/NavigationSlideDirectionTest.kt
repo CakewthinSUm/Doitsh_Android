@@ -44,3 +44,45 @@ class NavigationSlideDirectionTest {
         assertEquals(SlideDirection.Right, navigationSlideDirection(from = 3, to = 2))
     }
 }
+
+/**
+ * Which motion a transition segment gets, decided from the two container positions alone.
+ *
+ * This is the rule that makes a cancelled predictive back gesture continue the pop it
+ * started. Nav3 runs the rewind under its *forward* spec — a cancelled gesture does not
+ * pop, so `isPop` is false — so if the motion depended on which spec was selected, the
+ * page would jump the instant the finger lifted. It must depend only on the segment.
+ */
+class NavigationMotionTest {
+
+    @Test
+    fun leavingAPushedScreenIsAReveal() {
+        // Settings publishes no position; the bar destination underneath it does. This is
+        // the segment a Settings back gesture seeks, and it reads the same whether the
+        // gesture is dragging, committed or cancelled.
+        assertEquals(NavigationMotion.Reveal, navigationMotion(from = null, to = 0))
+        assertEquals(NavigationMotion.Reveal, navigationMotion(from = null, to = 1))
+    }
+
+    @Test
+    fun pushingOntoAPushedScreenIsNotAReveal() {
+        // Leaving a bar destination for a pushed screen is a push, not a reveal — the
+        // reveal direction is fixed and would send the incoming screen in from the wrong
+        // edge here.
+        assertEquals(NavigationMotion.Push(SlideDirection.Left), navigationMotion(from = 0, to = null))
+        assertEquals(NavigationMotion.Push(SlideDirection.Left), navigationMotion(from = 1, to = null))
+    }
+
+    @Test
+    fun movingBetweenContainerPositionsIsAPushInThatDirection() {
+        assertEquals(NavigationMotion.Push(SlideDirection.Left), navigationMotion(from = 0, to = 1))
+        assertEquals(NavigationMotion.Push(SlideDirection.Right), navigationMotion(from = 1, to = 0))
+    }
+
+    @Test
+    fun twoPushedScreensStillGetAForwardDirection() {
+        // Neither publishes a position, so there is no container order to read; the
+        // forward convention is what a push should look like.
+        assertEquals(NavigationMotion.Push(SlideDirection.Left), navigationMotion(from = null, to = null))
+    }
+}
