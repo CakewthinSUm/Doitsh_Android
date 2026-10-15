@@ -3,7 +3,6 @@ package com.doitsh.app.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.Close
@@ -16,6 +15,7 @@ import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -63,20 +63,10 @@ data object Settings : NavKey
  * containers can never drift apart.
  */
 private val TopLevelDestinations = listOf(
-    DoitshNavigationDestination(
-        key = Home,
-        icon = Icons.Filled.Home,
-        label = R.string.nav_tasks,
-        title = R.string.app_name,
-    ) { padding ->
+    DoitshNavigationDestination(Home, Icons.Filled.Home, R.string.nav_tasks) { padding ->
         HomeScreen(contentPadding = padding)
     },
-    DoitshNavigationDestination(
-        key = Projects,
-        icon = Icons.Outlined.Folder,
-        label = R.string.nav_projects,
-        title = R.string.nav_projects,
-    ) { padding ->
+    DoitshNavigationDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects) { padding ->
         ProjectsScreen(contentPadding = padding)
     },
 )
@@ -87,6 +77,7 @@ fun DoitshApp() {
     var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var creationDialog by remember { mutableStateOf<CreationDialog?>(null) }
     val creationViewModel: CreationViewModel = hiltViewModel()
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -106,84 +97,86 @@ fun DoitshApp() {
             )
         }
 
-        // Each destination brings its own Scaffold rather than sharing one around the
-        // NavDisplay. That is what makes Settings animate as a whole page: its top bar
-        // is inside the scene, so it is the *card* that recedes during a predictive
-        // back drag, not just the body under a fixed app bar. It also lets Settings
-        // carry a back arrow, which a shared bar could not — the shared bar has no way
-        // to know whether the current destination wants a back affordance or a
-        // settings action.
-        NavDisplay(
+        Scaffold(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxHeight(),
-            backStack = backStack,
-            onBack = { backStack.removeLastOrNull() },
-            // NavDisplay's built-in specs are a hard-coded 700ms cross-fade that
-            // ignores MotionScheme; these use the theme's Expressive motion instead.
-            // See NavTransitions.kt.
-            transitionSpec = expressiveSceneTransition(),
-            popTransitionSpec = expressivePopTransition(),
-            predictivePopTransitionSpec = expressivePredictivePopTransition(),
-            entryDecorators = listOf(
-                // Saves each entry's `rememberSaveable` state, and gives every
-                // entry its own ViewModelStore so ViewModels are scoped to the
-                // destination rather than to the Activity.
-                rememberSaveableStateHolderNavEntryDecorator(),
-                rememberViewModelStoreNavEntryDecorator()
-            ),
-            entryProvider = entryProvider {
-                // Each top-level destination publishes its position in the bar as
-                // metadata, which is how the transitions learn which way to slide — see
-                // navigationSlideDirection. Position, title and content all come from the
-                // destination list, so adding, reordering or replacing a bar button needs
-                // no change here. Settings publishes no position: it is pushed onto the
-                // stack, not selected from the container.
-                TopLevelDestinations.forEachIndexed { index, destination ->
-                    entry(
-                        key = destination.key,
-                        metadata = navigationOrder(index),
-                    ) {
-                        PredictiveBackCard(
-                            isTopDestination = backStack.last() == destination.key,
-                            isInBackStack = destination.key in backStack,
-                        ) {
-                            TopLevelScaffold(
-                                title = stringResource(destination.title),
-                                currentDestination = destination.key,
-                                useNavigationRail = useNavigationRail,
-                                snackbarHostState = snackbarHostState,
-                                onSelect = { backStack.selectTopLevel(it) },
-                                onOpenSettings = { backStack.navigateTo(Settings) },
-                                floatingActionButton = {
-                                    CreationFab(
-                                        expanded = fabMenuExpanded,
-                                        onExpandedChange = { fabMenuExpanded = it },
-                                        onCreateProject = {
-                                            fabMenuExpanded = false
-                                            creationDialog = CreationDialog.Project
-                                        },
-                                        onCreateTask = {
-                                            fabMenuExpanded = false
-                                            creationDialog = CreationDialog.Task
-                                        }
-                                    )
-                                }
-                            ) { padding ->
-                                destination.content(padding)
+                .fillMaxHeight()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = when (backStack.last()) {
+                                Projects -> stringResource(R.string.nav_projects)
+                                Settings -> stringResource(R.string.nav_settings)
+                                else -> stringResource(R.string.app_name)
+                            }
+                        )
+                    },
+                    actions = {
+                        // Settings is not a top-level destination — it is reached from
+                        // here, which keeps the navigation bar at two items.
+                        if (backStack.last() != Settings) {
+                            IconButton(onClick = { backStack.navigateTo(Settings) }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = stringResource(R.string.nav_settings)
+                                )
                             }
                         }
-                    }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                    ),
+                    windowInsets = WindowInsets.statusBars
+                )
+            },
+            bottomBar = {
+                if (!useNavigationRail) {
+                    DoitshNavigationBar(
+                        destinations = TopLevelDestinations,
+                        selectedKey = backStack.last(),
+                        onSelect = { backStack.selectTopLevel(it) },
+                    )
                 }
-                entry<Settings> {
-                    PredictiveBackCard(
-                        isTopDestination = backStack.last() == Settings,
-                        isInBackStack = Settings in backStack,
-                    ) {
-                        SettingsScaffold(
-                            snackbarHostState = snackbarHostState,
-                            onBack = { backStack.removeLastOrNull() }
-                        ) { padding ->
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            floatingActionButton = {}
+        ) { padding ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                NavDisplay(
+                    modifier = Modifier.fillMaxSize(),
+                    backStack = backStack,
+                    onBack = { backStack.removeLastOrNull() },
+                    // NavDisplay's built-in specs are a hard-coded 700ms cross-fade
+                    // that ignores MotionScheme; these use the theme's Expressive
+                    // motion instead. See NavTransitions.kt.
+                    transitionSpec = expressiveSceneTransition(),
+                    popTransitionSpec = expressivePopTransition(),
+                    predictivePopTransitionSpec = expressivePredictivePopTransition(),
+                    entryDecorators = listOf(
+                        // Saves each entry's `rememberSaveable` state, and gives every
+                        // entry its own ViewModelStore so ViewModels are scoped to the
+                        // destination rather than to the Activity.
+                        rememberSaveableStateHolderNavEntryDecorator(),
+                        rememberViewModelStoreNavEntryDecorator()
+                    ),
+                    entryProvider = entryProvider {
+                        // Each top-level destination publishes its position in the bar as
+                        // metadata, which is how the transitions learn which way to slide
+                        // — see navigationSlideDirection. Position and content both come
+                        // from the destination list, so adding, reordering or replacing a
+                        // bar button needs no change here. Settings publishes no position:
+                        // it is pushed onto the stack, not selected from the container.
+                        TopLevelDestinations.forEachIndexed { index, destination ->
+                            entry(
+                                key = destination.key,
+                                metadata = navigationOrder(index),
+                            ) { destination.content(padding) }
+                        }
+                        entry<Settings> {
                             SettingsScreen(
                                 contentPadding = padding,
                                 onShowMessage = { message ->
@@ -192,9 +185,59 @@ fun DoitshApp() {
                             )
                         }
                     }
+                )
+
+                // Both top-level destinations create things, so the FAB menu is not
+                // gated on Home alone.
+                if (backStack.last() != Settings) {
+                    FloatingActionButtonMenu(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(bottom = padding.calculateBottomPadding()),
+                        expanded = fabMenuExpanded,
+                        button = {
+                            ToggleFloatingActionButton(
+                                modifier = Modifier
+                                    .animateFloatingActionButton(
+                                        visible = true,
+                                        alignment = Alignment.BottomEnd
+                                    ),
+                                checked = fabMenuExpanded,
+                                onCheckedChange = { fabMenuExpanded = it }
+                            ) {
+                                val imageVector by remember {
+                                    derivedStateOf {
+                                        if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add
+                                    }
+                                }
+                                Icon(
+                                    painter = rememberVectorPainter(imageVector),
+                                    contentDescription = null,
+                                    modifier = Modifier.animateIcon({ checkedProgress })
+                                )
+                            }
+                        },
+                    ) {
+                        FloatingActionButtonMenuItem(
+                            onClick = {
+                                fabMenuExpanded = false
+                                creationDialog = CreationDialog.Project
+                            },
+                            icon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
+                            text = { Text(stringResource(R.string.fab_new_project)) }
+                        )
+                        FloatingActionButtonMenuItem(
+                            onClick = {
+                                fabMenuExpanded = false
+                                creationDialog = CreationDialog.Task
+                            },
+                            icon = { Icon(Icons.Filled.AddTask, contentDescription = null) },
+                            text = { Text(stringResource(R.string.fab_new_task)) }
+                        )
+                    }
                 }
             }
-        )
+        }
     }
 
     creationDialog?.let { dialog ->
@@ -209,145 +252,6 @@ fun DoitshApp() {
                 creationViewModel.createProject(name, description)
                 creationDialog = null
             },
-        )
-    }
-}
-
-/**
- * The chrome shared by the two top-level destinations: app bar with the Settings
- * action, the adaptive navigation container, and the creation FAB.
- */
-@Composable
-private fun TopLevelScaffold(
-    title: String,
-    currentDestination: NavKey,
-    useNavigationRail: Boolean,
-    snackbarHostState: SnackbarHostState,
-    onSelect: (NavKey) -> Unit,
-    onOpenSettings: () -> Unit,
-    floatingActionButton: @Composable () -> Unit,
-    content: @Composable (PaddingValues) -> Unit,
-) {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-
-    Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            TopAppBar(
-                title = { Text(title) },
-                actions = {
-                    // Settings is not a top-level destination — it is reached from
-                    // here, which keeps the navigation bar at two items.
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = stringResource(R.string.nav_settings)
-                        )
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                windowInsets = WindowInsets.statusBars
-            )
-        },
-        bottomBar = {
-            if (!useNavigationRail) {
-                DoitshNavigationBar(
-                    destinations = TopLevelDestinations,
-                    selectedKey = currentDestination,
-                    onSelect = onSelect,
-                )
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = floatingActionButton,
-        content = content
-    )
-}
-
-/**
- * Settings as a full page of its own: a back arrow and no bottom bar, so it reads as
- * a screen pushed on top of the app rather than a tab inside it. The back arrow is
- * the affordance the shared bar could not offer, and it is what the system back
- * gesture's predictive animation previews.
- */
-@Composable
-private fun SettingsScaffold(
-    snackbarHostState: SnackbarHostState,
-    onBack: () -> Unit,
-    content: @Composable (PaddingValues) -> Unit,
-) {
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.nav_settings)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                windowInsets = WindowInsets.statusBars
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        content = content
-    )
-}
-
-/**
- * The Expressive FAB menu. It lives in the Scaffold's `floatingActionButton` slot
- * rather than in a Box over the content, so the Scaffold keeps it clear of the
- * bottom bar and it travels with the page during navigation.
- */
-@Composable
-private fun CreationFab(
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    onCreateProject: () -> Unit,
-    onCreateTask: () -> Unit,
-) {
-    FloatingActionButtonMenu(
-        expanded = expanded,
-        button = {
-            ToggleFloatingActionButton(
-                checked = expanded,
-                onCheckedChange = onExpandedChange
-            ) {
-                val imageVector by remember {
-                    derivedStateOf {
-                        if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add
-                    }
-                }
-                Icon(
-                    painter = rememberVectorPainter(imageVector),
-                    contentDescription = null,
-                    modifier = Modifier.animateIcon({ checkedProgress })
-                )
-            }
-        },
-    ) {
-        FloatingActionButtonMenuItem(
-            onClick = onCreateProject,
-            icon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
-            text = { Text(stringResource(R.string.fab_new_project)) }
-        )
-        FloatingActionButtonMenuItem(
-            onClick = onCreateTask,
-            icon = { Icon(Icons.Filled.AddTask, contentDescription = null) },
-            text = { Text(stringResource(R.string.fab_new_task)) }
         )
     }
 }
