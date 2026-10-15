@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -130,49 +129,92 @@ fun <T : Any> expressiveSceneTransition(): AnimatedContentTransitionScope<Scene<
 }
 
 /**
- * The `popTransitionSpec`: the screen being revealed comes back in from the leading edge
- * and the screen being dismissed slides away to the trailing edge.
+ * The one animation behind both `popTransitionSpec` and `predictivePopTransitionSpec`: the
+ * screen being dismissed slides away to the trailing edge, revealing the screen underneath,
+ * which comes back in from the leading edge at a third of the travel.
  *
- * This direction is fixed on purpose, and it is a different question from the one
+ * The direction is fixed on purpose, and it is a different question from the one
  * [navigationSlideDirection] answers. A pop is a stack operation, not a move between two
  * positions in a navigation container: the screen underneath may not be a bar destination
- * at all (Settings has no bar position to compare against), and revealing it from the
- * edge the user is gesturing towards is what makes back feel like back. Deriving this from
- * bar order would send a Settings pop the wrong way.
+ * at all (Settings has no bar position to compare against), and revealing it from the edge
+ * the user is gesturing towards is what makes back feel like back. Deriving this from bar
+ * order would send a Settings pop the wrong way.
+ *
+ * ## Why pop and predictive back share this, rather than each having a spec
+ *
+ * A predictive back gesture does not play the pop transition, it *seeks* it: NavDisplay maps
+ * the gesture's progress straight onto the transition's fraction. When the finger lifts,
+ * `inPredictiveBack` goes false and the very same transition is played the rest of the way
+ * under `popTransitionSpec` — NavDisplay re-derives which spec to use on every frame, so the
+ * hand-off swaps the spec mid-flight. If the two specs describe different animations, the
+ * page jumps at exactly the moment the user expects the gesture to finish what it started.
+ *
+ * That is what a scale-out predictive spec against a slide-out pop spec looked like: a drag
+ * shrank the page towards its centre, and the release snapped it back to full size and sent
+ * it off sideways. Both halves read as bugs from the outside, and which one you noticed
+ * depended only on how far the gesture got.
+ *
+ * Returning one spec from one function is what makes them impossible to drift apart again.
+ *
+ * ## Why there is no fade
+ *
+ * A seeked transition is evaluated by *play time*: fraction f means play time
+ * `f * totalDuration`, and any opacity transition is finished once play time passes its
+ * duration. At this spec's ~328 ms, a fade is over by around fraction 0.18 — so it plays out
+ * in the first fifth of the drag and the page then spends the rest of the gesture sliding as
+ * a ghost. Reaching past that means a delay eating most of the duration, which leaves a fade
+ * too short to read.
+ *
+ * A slide has no such problem: it is proportional to the fraction, so it tracks the finger
+ * for the whole gesture and is still mid-flight at any point the user lets go. That is also
+ * why the released animation needs no fade of its own — the page is already on its way out.
+ *
+ * The platform can hold a dismissed Activity opaque for the whole drag and fade it only on
+ * release; in-app Nav3 reports no release event and hands the gesture the entire fraction
+ * range, so there is no such moment to hang a fade on. A fade in a spec this long is
+ * therefore not a small fade — it is a fade the user watches end before they have finished
+ * dragging. `docs/navbar-comparison.png` is the reference the card design was matched
+ * against; Todoist's Settings is a separate Activity, so its release-fade is not reachable
+ * from here.
  */
 @Composable
-fun <T : Any> expressivePopTransition(): AnimatedContentTransitionScope<Scene<T>>.() -> ContentTransform {
+private fun <T : Any> expressivePopSpec(): AnimatedContentTransitionScope<Scene<T>>.() -> ContentTransform {
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
-    val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     return {
         slideIntoContainer(
             towards = AnimatedContentTransitionScope.SlideDirection.Right,
             animationSpec = spatial,
+            // A third of the full slide: the revealed screen is already sitting behind the
+            // one leaving, so it should be uncovered rather than travel the whole width.
             initialOffset = { it / 3 }
-        ) + fadeIn(animationSpec = effects) togetherWith
+        ) togetherWith
             slideOutOfContainer(
                 towards = AnimatedContentTransitionScope.SlideDirection.Right,
                 animationSpec = spatial
-            ) + fadeOut(animationSpec = effects)
+            )
     }
 }
 
 /**
- * Predictive pop: used while the user is still dragging the system back gesture, so
- * this spec is driven by gesture progress rather than running on its own clock. The
- * outgoing screen shrinks towards the centre as the finger travels, which is the
- * Expressive "the screen recedes because you are leaving it" cue.
+ * The `popTransitionSpec`: a system back press that is not a predictive gesture (a hardware
+ * key, or an older platform) runs this to completion on its own clock.
+ */
+@Composable
+fun <T : Any> expressivePopTransition(): AnimatedContentTransitionScope<Scene<T>>.() -> ContentTransform =
+    expressivePopSpec()
+
+/**
+ * Predictive pop: used while the user is still dragging the system back gesture, so this spec
+ * is driven by gesture progress rather than running on its own clock.
  *
- * The scale animation uses the spatial spec (it is a spatial transform) while the
- * fade uses the effects spec.
+ * It is deliberately **identical** to [expressivePopTransition] — both are [expressivePopSpec]
+ * — so the release continues the animation the drag started. See that function for why.
+ *
+ * The `Int` is the swipe edge the gesture came from; the animation is the same either way,
+ * because a pop always reveals towards the edge the user is pulling from.
  */
 @Composable
 fun <T : Any> expressivePredictivePopTransition(): AnimatedContentTransitionScope<Scene<T>>.(Int) -> ContentTransform {
-    val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
-    val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
-    return { _ ->
-        fadeIn(animationSpec = effects) togetherWith
-            scaleOut(animationSpec = spatial, targetScale = 0.9f) +
-            fadeOut(animationSpec = effects)
-    }
+    val pop = expressivePopSpec<T>()
+    return { _ -> pop(this) }
 }
