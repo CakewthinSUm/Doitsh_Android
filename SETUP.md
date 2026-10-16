@@ -98,8 +98,10 @@ shared/       # (未来) 共享代码
 - ✅ Room 数据库
 - ✅ Hilt 依赖注入
 - ✅ Navigation 3 导航 (Today / Inbox / Projects / Settings)
-- ✅ 截止日期选择器 (新建任务对话框)
-- ✅ 任务/项目新增对话框 (FAB 菜单)
+- ✅ 新建任务底部抽屉 (模态 `ModalBottomSheet`，列表在背后仍可见，下滑取消)
+- ✅ 截止日期：今天 / 明天 / 下周快捷选项 + 日期选择器
+- ✅ 优先级与所属项目 (连接式按钮组 + 项目选择器：点按出下拉，长按出可滑动选择列表)
+- ✅ 项目新增对话框 (FAB 菜单)
 - ✅ 任务滑动删除
 - ✅ 全部文案抽取到 `res/values/strings.xml` (英文)
 - ✅ Ktor 客户端 (Ktor 3)

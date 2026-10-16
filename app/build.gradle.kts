@@ -56,7 +56,12 @@ kotlin {
     compilerOptions {
         freeCompilerArgs.addAll(
             "-Xopt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi",
-            "-Xopt-in=androidx.compose.material3.ExperimentalMaterial3Api"
+            "-Xopt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            // FlowRow, for the sheet's chip rows. Chips are sized to their own labels
+            // rather than to equal weights, so a long label ("Tomorrow", and worse in
+            // languages that are longer than English) wraps the row instead of being
+            // truncated mid-word.
+            "-Xopt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi"
         )
     }
 }

@@ -34,12 +34,23 @@
     <string name="label_task_title">Task title</string>
     <string name="label_description_optional">Description (optional)</string>
     <string name="label_due_date">Due date</string>
-    <string name="action_set_due_date">Set due date</string>
-    <string name="action_clear_due_date">Clear due date</string>
     <string name="action_save">Save</string>
     <string name="action_ok">OK</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_back">Back</string>
+
+    <!-- New task sheet -->
+    <string name="due_today">Today</string>
+    <string name="due_tomorrow">Tomorrow</string>
+    <string name="due_next_week">Next week</string>
+    <string name="action_pick_date">Pick a date</string>
+    <string name="action_clear_date">Clear date</string>
+    <string name="label_priority">Priority</string>
+    <string name="priority_low">Low</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_high">High</string>
+    <string name="label_project">Project</string>
+    <string name="project_inbox">Inbox</string>
 
     <!-- Settings screen -->
     <string name="settings_data_mode">Data mode</string>
