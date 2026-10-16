@@ -135,8 +135,15 @@ The server starts on `http://0.0.0.0:8080`.
   `TaskFilters.kt` rather than queried per data mode, so local and self-hosted cannot
   disagree about what they mean. The Inbox keeps completed tasks — with no completed-tasks
   view, hiding them would make a mis-ticked task unreachable
-- Due dates: the new-task dialog has a date picker, and a task's due date is compared
-  by calendar day (`Task.isDueTodayOrEarlier`)
+- New tasks are added from a modal bottom sheet that keeps the list visible behind it and
+  carries the fields the model already had — due date, priority and project
+- Due dates: Today / Tomorrow / Next week presets, plus a date picker for anything else. A
+  task's due date is compared by calendar day (`Task.isDueTodayOrEarlier`)
+- Priority and project: a connected button group (tapping the selected priority again
+  clears it) and a project picker offering Inbox plus the user's projects. The picker opens
+  as a dropdown on a tap and as a press-and-hold drag list on a long press, the latter
+  modelled on Google Translate's language button — the list appears with the current choice
+  already under your finger, sliding moves the highlight, and releasing commits it
 - Material 3 Expressive design with a floating action button menu
 - Swipe-to-dismiss task deletion, plus a per-row delete button
 - Adaptive navigation: `ShortNavigationBar` by default, `WideNavigationRail` only on

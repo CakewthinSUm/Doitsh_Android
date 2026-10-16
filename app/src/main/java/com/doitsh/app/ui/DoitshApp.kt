@@ -2,13 +2,11 @@ package com.doitsh.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddTask
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Settings
@@ -26,11 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -44,6 +37,7 @@ import com.doitsh.app.R
 import com.doitsh.app.ui.components.DoitshNavigationBar
 import com.doitsh.app.ui.components.DoitshNavigationDestination
 import com.doitsh.app.ui.components.DoitshNavigationRail
+import com.doitsh.app.ui.components.TaskCreationSheet
 import com.doitsh.app.ui.components.rememberUseNavigationRail
 import com.doitsh.app.ui.screens.CreationViewModel
 import com.doitsh.app.ui.screens.InboxScreen
@@ -52,12 +46,6 @@ import com.doitsh.app.ui.screens.SettingsScreen
 import com.doitsh.app.ui.screens.TodayScreen
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 /**
  * Navigation 3 destinations. Each key is `@Serializable` so the back stack can be
@@ -311,19 +299,38 @@ fun DoitshApp() {
         }
     }
 
-    creationDialog?.let { dialog ->
-        CreationDialogContent(
-            dialog = dialog,
+    // Task creation is a bottom sheet and project creation is a dialog: a task has five
+    // fields and is created constantly, so it earns the larger surface and the
+    // drag-to-dismiss gesture; a project is a name and a description, which a dialog
+    // says in one glance and a sheet would pad out with empty space.
+    when (creationDialog) {
+        CreationDialog.Task -> {
+            val projects by creationViewModel.projects.collectAsState()
+            TaskCreationSheet(
+                projects = projects,
+                onDismiss = { creationDialog = null },
+                onCreate = { title, description, dueDate, priority, projectId ->
+                    creationViewModel.createTask(
+                        title = title,
+                        description = description,
+                        dueDate = dueDate,
+                        priority = priority,
+                        projectId = projectId,
+                    )
+                    creationDialog = null
+                },
+            )
+        }
+
+        CreationDialog.Project -> ProjectCreationDialog(
             onDismiss = { creationDialog = null },
-            onCreateTask = { title, description, dueDate ->
-                creationViewModel.createTask(title, description, dueDate)
-                creationDialog = null
-            },
-            onCreateProject = { name, description ->
+            onCreate = { name, description ->
                 creationViewModel.createProject(name, description)
                 creationDialog = null
             },
         )
+
+        null -> Unit
     }
 }
 
@@ -391,39 +398,31 @@ private fun NavBackStack<NavKey>.navigateTo(key: NavKey) {
 
 private enum class CreationDialog { Project, Task }
 
+/**
+ * Creating a project: a name and an optional description.
+ *
+ * Still a dialog, unlike the task sheet. A project is two fields and is created rarely;
+ * the sheet's extra height and its pinned footer would be padding around empty space,
+ * and a modal choice with one obvious "save" is exactly what a dialog is for.
+ */
 @Composable
-private fun CreationDialogContent(
-    dialog: CreationDialog,
+private fun ProjectCreationDialog(
     onDismiss: () -> Unit,
-    onCreateTask: (String, String?, LocalDateTime?) -> Unit,
-    onCreateProject: (String, String?) -> Unit,
+    onCreate: (String, String?) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
-    // Held as an ISO date string rather than a LocalDate: `rememberSaveable` can only
-    // persist types its Saver knows, and a String is one of them. The picker works in
-    // whole days anyway, so no time of day is lost.
-    var dueDateIso by rememberSaveable { mutableStateOf<String?>(null) }
-    var showDatePicker by rememberSaveable { mutableStateOf(false) }
-    val isProject = dialog == CreationDialog.Project
-    val title = stringResource(
-        if (isProject) R.string.dialog_new_project else R.string.dialog_new_task
-    )
-    val nameLabel = stringResource(
-        if (isProject) R.string.label_project_name else R.string.label_task_title
-    )
     val trimmedName = name.trim()
-    val dueDate = dueDateIso?.let(LocalDate::parse)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(stringResource(R.string.dialog_new_project)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text(nameLabel) },
+                    label = { Text(stringResource(R.string.label_project_name)) },
                     singleLine = true,
                     isError = name.isNotEmpty() && trimmedName.isEmpty(),
                     modifier = Modifier.fillMaxWidth(),
@@ -435,30 +434,13 @@ private fun CreationDialogContent(
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                // Only a task has a due date — a project is a container, not something
-                // that comes due.
-                if (!isProject) {
-                    DueDateField(
-                        dueDate = dueDate,
-                        onPick = { showDatePicker = true },
-                        onClear = { dueDateIso = null },
-                    )
-                }
             }
         },
         confirmButton = {
             TextButton(
                 enabled = trimmedName.isNotEmpty(),
                 onClick = {
-                    val trimmedDescription = description.trim().takeIf { it.isNotEmpty() }
-                    if (isProject) {
-                        onCreateProject(trimmedName, trimmedDescription)
-                    } else {
-                        // Stored at the start of the picked day: the app compares due
-                        // dates by calendar day, so the time of day is not part of the
-                        // value the user chose. See `Task.isDueTodayOrEarlier`.
-                        onCreateTask(trimmedName, trimmedDescription, dueDate?.atStartOfDay())
-                    }
+                    onCreate(trimmedName, description.trim().takeIf { it.isNotEmpty() })
                 },
             ) {
                 Text(stringResource(R.string.action_save))
@@ -468,113 +450,4 @@ private fun CreationDialogContent(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     )
-
-    // A second dialog rather than a sheet: this is a modal choice with its own OK, and
-    // nesting it here keeps the picked date in this dialog's own state — the field above
-    // and the picker can never disagree about what is selected.
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = dueDate?.toEpochMillisUtc()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        dueDateIso = datePickerState.selectedDateMillis?.toLocalDateUtc()?.toString()
-                        showDatePicker = false
-                    }
-                ) {
-                    Text(stringResource(R.string.action_ok))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            },
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
 }
-
-/**
- * The task dialog's due-date row: a field that opens the picker, plus a clear button
- * once a date has been chosen.
- *
- * The text field is `readOnly` and an invisible tap target is laid over it, rather than
- * making the field itself clickable. A read-only `OutlinedTextField` still consumes
- * pointer input — it can be focused and its cursor moved — so a click handler on the
- * field would fight that; the overlay is the pattern the Material date-field guidance
- * describes. The clear button sits *outside* the overlay so it stays tappable.
- *
- * The overlay is what the user taps, so it is also what has to carry the accessible
- * name. The field underneath describes itself as an editable text box ("edit box,
- * blank"), which is both wrong and the only thing a screen reader would find; so its
- * own semantics are cleared and the overlay announces the label and the current value
- * instead. The description goes on the overlay rather than on the `Box` around it: a
- * node with a description but no action of its own is not exposed, and the overlay is
- * the node that is actually clickable.
- */
-@Composable
-private fun DueDateField(
-    dueDate: LocalDate?,
-    onPick: () -> Unit,
-    onClear: () -> Unit,
-) {
-    val formatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
-    val label = stringResource(R.string.label_due_date)
-    val setDateHint = stringResource(R.string.action_set_due_date)
-    val formattedDate = dueDate?.format(formatter)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.weight(1f)) {
-            OutlinedTextField(
-                value = formattedDate.orEmpty(),
-                onValueChange = {},
-                readOnly = true,
-                label = { Text(label) },
-                placeholder = { Text(setDateHint) },
-                trailingIcon = {
-                    Icon(Icons.Filled.CalendarMonth, contentDescription = null)
-                },
-                // The field is only a display; the overlay above it takes the tap.
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clearAndSetSemantics { }
-            )
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clickable(onClick = onPick)
-                    .semantics {
-                        contentDescription = "$label, ${formattedDate ?: setDateHint}"
-                        role = Role.Button
-                    }
-            )
-        }
-        if (dueDate != null) {
-            IconButton(onClick = onClear) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = stringResource(R.string.action_clear_due_date)
-                )
-            }
-        }
-    }
-}
-
-/**
- * `DatePicker` works in UTC: `selectedDateMillis` is the epoch instant of *midnight UTC*
- * on the day the user tapped, and it expects the same when seeding an initial selection.
- *
- * Converting through the local zone — the intuitive reading of a bare epoch millis —
- * shifts the date by a day for every user west of Greenwich, so a date picked in
- * California would be stored as the day before. These two helpers are the only place
- * that conversion happens, and they are unit-tested.
- */
-internal fun LocalDate.toEpochMillisUtc(): Long =
-    atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-
-internal fun Long.toLocalDateUtc(): LocalDate =
-    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
