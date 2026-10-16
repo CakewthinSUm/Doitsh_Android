@@ -16,11 +16,13 @@ Doitsh/
 │       └── ui/             # Compose screens, theme, and components
 └── server/                 # Ktor REST API server
     └── src/main/kotlin/com/doitsh/server/
-        ├── Application.kt  # Server entry point
-        ├── Routing.kt      # API endpoints
-        ├── Tables.kt       # Exposed ORM table definitions
-        ├── Security.kt     # JWT authentication
-        └── Database.kt     # DB connection and pooling
+        ├── Application.kt   # Server entry point
+        ├── Routing.kt       # API endpoints
+        ├── Tables.kt        # Exposed ORM table definitions
+        ├── Security.kt      # JWT authentication
+        ├── Database.kt      # DB connection and pooling
+        ├── Cors.kt          # CORS configuration
+        └── Serialization.kt # JSON content negotiation and error handling
 ```
 
 ## Tech Stack
