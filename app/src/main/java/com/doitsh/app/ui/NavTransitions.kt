@@ -52,7 +52,7 @@ import androidx.navigation3.scene.Scene
  * `inPredictiveBack` is false the moment the finger lifts — so the rewind runs the
  * **forward** spec, over the very same segment the drag was seeking.
  *
- * One Settings → Home transition is therefore driven by up to three different specs, and
+ * One Settings → Today transition is therefore driven by up to three different specs, and
  * if they disagree the page jumps at the instant the user lets go — by an amount that
  * depends on the fraction the finger happened to release at, which is why the same
  * gesture looks fine one time and broken the next. This file exists to make that

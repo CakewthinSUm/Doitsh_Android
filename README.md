@@ -128,12 +128,18 @@ The server starts on `http://0.0.0.0:8080`.
 ## Features
 - Offline-first: Room-backed local storage with repository abstraction
 - Remote sync ready: Ktor API client with configurable base URL and auth token
-- Task filtering: All / Today / This Week
+- Task filtering: **Inbox** (tasks belonging to no project) and **Today** (open tasks
+  due today or earlier, most overdue first). Both are derived from the full task list in
+  `TaskFilters.kt` rather than queried per data mode, so local and self-hosted cannot
+  disagree about what they mean. The Inbox keeps completed tasks — with no completed-tasks
+  view, hiding them would make a mis-ticked task unreachable
+- Due dates: the new-task dialog has a date picker, and a task's due date is compared
+  by calendar day (`Task.isDueTodayOrEarlier`)
 - Material 3 Expressive design with a floating action button menu
 - Swipe-to-dismiss task deletion, plus a per-row delete button
 - Adaptive navigation: `ShortNavigationBar` by default, `WideNavigationRail` only on
   windows that are at least medium width and height (and not half-folded)
-- Navigation 3 back stack: `Home` (Tasks) and `Projects` in the bar, `Settings` pushed from a top bar action
+- Navigation 3 back stack: `Today`, `Inbox` and `Projects` in the bar, `Settings` pushed from a top bar action
   (the bar and rail belong to the top level, so they are hidden while Settings — a page one level up —
   is open, and Settings shows a back arrow in the top bar instead)
 - All user-facing strings in `res/values/strings.xml` (English)

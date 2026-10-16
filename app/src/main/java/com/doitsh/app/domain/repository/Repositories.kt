@@ -15,6 +15,13 @@ import kotlinx.coroutines.flow.Flow
  */
 interface TaskRepository {
     fun getAllTasks(): Flow<List<Task>>
+
+    /** The Inbox: tasks that belong to no project and are still open. */
+    fun getInboxTasks(): Flow<List<Task>>
+
+    /** The Today page: open tasks due today or earlier. */
+    fun getTodayTasks(): Flow<List<Task>>
+
     fun getTasksByProject(projectId: String): Flow<List<Task>>
     fun getActiveTasks(): Flow<List<Task>>
     suspend fun getTaskById(id: String): Task?

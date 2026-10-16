@@ -97,7 +97,8 @@ shared/       # (未来) 共享代码
 - ✅ 双模式数据层 (本地 / Self-hosted)
 - ✅ Room 数据库
 - ✅ Hilt 依赖注入
-- ✅ Navigation 3 导航 (Home / Settings)
+- ✅ Navigation 3 导航 (Today / Inbox / Projects / Settings)
+- ✅ 截止日期选择器 (新建任务对话框)
 - ✅ 任务/项目新增对话框 (FAB 菜单)
 - ✅ 任务滑动删除
 - ✅ 全部文案抽取到 `res/values/strings.xml` (英文)

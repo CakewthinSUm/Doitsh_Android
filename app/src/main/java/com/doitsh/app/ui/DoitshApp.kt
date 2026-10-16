@@ -2,16 +2,19 @@ package com.doitsh.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddTask
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.*
 import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
 import androidx.compose.runtime.*
@@ -23,6 +26,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -38,18 +46,28 @@ import com.doitsh.app.ui.components.DoitshNavigationDestination
 import com.doitsh.app.ui.components.DoitshNavigationRail
 import com.doitsh.app.ui.components.rememberUseNavigationRail
 import com.doitsh.app.ui.screens.CreationViewModel
-import com.doitsh.app.ui.screens.HomeScreen
+import com.doitsh.app.ui.screens.InboxScreen
 import com.doitsh.app.ui.screens.ProjectsScreen
 import com.doitsh.app.ui.screens.SettingsScreen
+import com.doitsh.app.ui.screens.TodayScreen
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * Navigation 3 destinations. Each key is `@Serializable` so the back stack can be
  * persisted and restored across process death by `rememberNavBackStack`.
  */
 @Serializable
-data object Home : NavKey
+data object Today : NavKey
+
+@Serializable
+data object Inbox : NavKey
 
 @Serializable
 data object Projects : NavKey
@@ -58,15 +76,24 @@ data object Projects : NavKey
 data object Settings : NavKey
 
 /**
- * Two destinations only: Material 3 Expressive asks a navigation bar to hold
- * three to five, and Settings is reached from the top bar instead.
+ * Three destinations: Material 3 Expressive asks a navigation bar to hold three to
+ * five, and Settings is reached from the top bar instead.
  *
- * Shared by the bottom bar and the wide-screen navigation rail so the two
+ * The order is the order they appear in the bar, the order the transitions slide in,
+ * and the order they are registered with NavDisplay — all of it read from this one
+ * list, so nothing here has to be kept in step by hand.
+ *
+ * Today leads and Inbox follows, which is the arrangement that makes the landing page
+ * the one you open the app to *do* something about rather than the one you file things
+ * into. Shared by the bottom bar and the wide-screen navigation rail so the two
  * containers can never drift apart.
  */
 private val TopLevelDestinations = listOf(
-    DoitshNavigationDestination(Home, Icons.Filled.Home, R.string.nav_tasks) { padding ->
-        HomeScreen(contentPadding = padding)
+    DoitshNavigationDestination(Today, Icons.Filled.Today, R.string.nav_today) { padding ->
+        TodayScreen(contentPadding = padding)
+    },
+    DoitshNavigationDestination(Inbox, Icons.Outlined.Inbox, R.string.nav_inbox) { padding ->
+        InboxScreen(contentPadding = padding)
     },
     DoitshNavigationDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects) { padding ->
         ProjectsScreen(contentPadding = padding)
@@ -87,7 +114,7 @@ private val TopLevelKeys: Set<NavKey> = TopLevelDestinations.map { it.key }.toSe
 
 @Composable
 fun DoitshApp() {
-    val backStack = rememberNavBackStack(Home)
+    val backStack = rememberNavBackStack(Today)
     var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var creationDialog by remember { mutableStateOf<CreationDialog?>(null) }
     val creationViewModel: CreationViewModel = hiltViewModel()
@@ -126,8 +153,16 @@ fun DoitshApp() {
                 TopAppBar(
                     title = {
                         Text(
-                            text = when (backStack.last()) {
-                                Projects -> stringResource(R.string.nav_projects)
+                            text = when (val current = backStack.last()) {
+                                // A top-level page is titled with the label its own
+                                // navigation button carries, read from the destination
+                                // list — so a page cannot end up labelled one thing in
+                                // the bar and another in the top bar.
+                                in TopLevelKeys -> stringResource(
+                                    TopLevelDestinations
+                                        .first { it.key == current }
+                                        .label
+                                )
                                 Settings -> stringResource(R.string.nav_settings)
                                 else -> stringResource(R.string.app_name)
                             }
@@ -222,8 +257,8 @@ fun DoitshApp() {
                     }
                 )
 
-                // Both top-level destinations create things, so the FAB menu is not
-                // gated on Home alone — but it does belong to the top level, for the
+                // Every top-level destination creates things, so the FAB menu is not
+                // gated on any one page — but it does belong to the top level, for the
                 // same reason the bar does.
                 if (isTopLevel) {
                     FloatingActionButtonMenu(
@@ -280,8 +315,8 @@ fun DoitshApp() {
         CreationDialogContent(
             dialog = dialog,
             onDismiss = { creationDialog = null },
-            onCreateTask = { title, description ->
-                creationViewModel.createTask(title, description)
+            onCreateTask = { title, description, dueDate ->
+                creationViewModel.createTask(title, description, dueDate)
                 creationDialog = null
             },
             onCreateProject = { name, description ->
@@ -302,8 +337,8 @@ fun DoitshApp() {
  * the two screens are composited straight onto each other and their text superimposes.
  *
  * That is not a cosmetic detail, it is what the reported "predictive back" bug actually
- * was. Home's "No tasks yet" showing through a Settings page that had not moved looked
- * like a cross-fade, and a screen apparently mid-fade reads as a scale-down; both were
+ * was. A list page's empty state showing through a Settings page that had not moved
+ * looked like a cross-fade, and a screen apparently mid-fade reads as a scale-down; both were
  * the same missing backdrop. It also made the drag look inconsistent, because how legible
  * the bleed-through is depends on how much of the two screens happens to overlap at the
  * fraction the user released at.
@@ -360,11 +395,16 @@ private enum class CreationDialog { Project, Task }
 private fun CreationDialogContent(
     dialog: CreationDialog,
     onDismiss: () -> Unit,
-    onCreateTask: (String, String?) -> Unit,
+    onCreateTask: (String, String?, LocalDateTime?) -> Unit,
     onCreateProject: (String, String?) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
+    // Held as an ISO date string rather than a LocalDate: `rememberSaveable` can only
+    // persist types its Saver knows, and a String is one of them. The picker works in
+    // whole days anyway, so no time of day is lost.
+    var dueDateIso by rememberSaveable { mutableStateOf<String?>(null) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val isProject = dialog == CreationDialog.Project
     val title = stringResource(
         if (isProject) R.string.dialog_new_project else R.string.dialog_new_task
@@ -373,6 +413,7 @@ private fun CreationDialogContent(
         if (isProject) R.string.label_project_name else R.string.label_task_title
     )
     val trimmedName = name.trim()
+    val dueDate = dueDateIso?.let(LocalDate::parse)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -394,6 +435,15 @@ private fun CreationDialogContent(
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // Only a task has a due date — a project is a container, not something
+                // that comes due.
+                if (!isProject) {
+                    DueDateField(
+                        dueDate = dueDate,
+                        onPick = { showDatePicker = true },
+                        onClear = { dueDateIso = null },
+                    )
+                }
             }
         },
         confirmButton = {
@@ -404,7 +454,10 @@ private fun CreationDialogContent(
                     if (isProject) {
                         onCreateProject(trimmedName, trimmedDescription)
                     } else {
-                        onCreateTask(trimmedName, trimmedDescription)
+                        // Stored at the start of the picked day: the app compares due
+                        // dates by calendar day, so the time of day is not part of the
+                        // value the user chose. See `Task.isDueTodayOrEarlier`.
+                        onCreateTask(trimmedName, trimmedDescription, dueDate?.atStartOfDay())
                     }
                 },
             ) {
@@ -415,4 +468,113 @@ private fun CreationDialogContent(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     )
+
+    // A second dialog rather than a sheet: this is a modal choice with its own OK, and
+    // nesting it here keeps the picked date in this dialog's own state — the field above
+    // and the picker can never disagree about what is selected.
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = dueDate?.toEpochMillisUtc()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        dueDateIso = datePickerState.selectedDateMillis?.toLocalDateUtc()?.toString()
+                        showDatePicker = false
+                    }
+                ) {
+                    Text(stringResource(R.string.action_ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
+
+/**
+ * The task dialog's due-date row: a field that opens the picker, plus a clear button
+ * once a date has been chosen.
+ *
+ * The text field is `readOnly` and an invisible tap target is laid over it, rather than
+ * making the field itself clickable. A read-only `OutlinedTextField` still consumes
+ * pointer input — it can be focused and its cursor moved — so a click handler on the
+ * field would fight that; the overlay is the pattern the Material date-field guidance
+ * describes. The clear button sits *outside* the overlay so it stays tappable.
+ *
+ * The overlay is what the user taps, so it is also what has to carry the accessible
+ * name. The field underneath describes itself as an editable text box ("edit box,
+ * blank"), which is both wrong and the only thing a screen reader would find; so its
+ * own semantics are cleared and the overlay announces the label and the current value
+ * instead. The description goes on the overlay rather than on the `Box` around it: a
+ * node with a description but no action of its own is not exposed, and the overlay is
+ * the node that is actually clickable.
+ */
+@Composable
+private fun DueDateField(
+    dueDate: LocalDate?,
+    onPick: () -> Unit,
+    onClear: () -> Unit,
+) {
+    val formatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
+    val label = stringResource(R.string.label_due_date)
+    val setDateHint = stringResource(R.string.action_set_due_date)
+    val formattedDate = dueDate?.format(formatter)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.weight(1f)) {
+            OutlinedTextField(
+                value = formattedDate.orEmpty(),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(label) },
+                placeholder = { Text(setDateHint) },
+                trailingIcon = {
+                    Icon(Icons.Filled.CalendarMonth, contentDescription = null)
+                },
+                // The field is only a display; the overlay above it takes the tap.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clearAndSetSemantics { }
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable(onClick = onPick)
+                    .semantics {
+                        contentDescription = "$label, ${formattedDate ?: setDateHint}"
+                        role = Role.Button
+                    }
+            )
+        }
+        if (dueDate != null) {
+            IconButton(onClick = onClear) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.action_clear_due_date)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * `DatePicker` works in UTC: `selectedDateMillis` is the epoch instant of *midnight UTC*
+ * on the day the user tapped, and it expects the same when seeding an initial selection.
+ *
+ * Converting through the local zone — the intuitive reading of a bare epoch millis —
+ * shifts the date by a day for every user west of Greenwich, so a date picked in
+ * California would be stored as the day before. These two helpers are the only place
+ * that conversion happens, and they are unit-tested.
+ */
+internal fun LocalDate.toEpochMillisUtc(): Long =
+    atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+internal fun Long.toLocalDateUtc(): LocalDate =
+    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()

@@ -58,7 +58,7 @@ fun SettingsScreen(
         )
     }
 
-    // Same contentPadding convention as Home/Projects, minus the extra FAB clearance:
+    // Same contentPadding convention as Today/Inbox/Projects, minus the FAB clearance:
     // Settings has no floating action button (DoitshApp gates the FAB on !Settings).
     LazyColumn(
         modifier = Modifier.fillMaxSize(),

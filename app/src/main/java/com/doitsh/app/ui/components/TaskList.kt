@@ -1,4 +1,4 @@
-package com.doitsh.app.ui.screens
+package com.doitsh.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,64 +9,41 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.doitsh.app.R
 import com.doitsh.app.domain.model.Task
-import com.doitsh.app.domain.repository.TaskRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class TasksViewModel @Inject constructor(
-    private val repository: TaskRepository
-) : ViewModel() {
-
-    /**
-     * `null` until Room has actually emitted, so the screen can tell "still loading"
-     * apart from "genuinely empty" — an `initialValue = emptyList()` would render the
-     * empty state for a frame on every cold start.
-     */
-    val tasks: StateFlow<List<Task>?> by lazy {
-        repository.getAllTasks().stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null
-        )
-    }
-
-    fun toggleTask(task: Task) {
-        viewModelScope.launch {
-            repository.updateTask(task.copy(isCompleted = !task.isCompleted))
-        }
-    }
-
-    fun deleteTask(task: Task) {
-        viewModelScope.launch {
-            repository.deleteTask(task.id)
-        }
-    }
-}
-
+/**
+ * A scrollable list of tasks, shared by the Inbox and Today pages.
+ *
+ * The two pages differ only in which tasks they are handed and what they say when there
+ * are none, so they differ only in this call's arguments. The rows, the swipe-to-dismiss
+ * behaviour, the loading state and the empty-state layout are one implementation.
+ *
+ * @param tasks `null` while the database has not emitted yet, so the list can tell
+ *   "still loading" apart from "genuinely empty" — see [com.doitsh.app.ui.screens.TaskListViewModel].
+ * @param emptyTitle what to say when there are no tasks; the pages pass their own copy
+ *   because "your inbox is empty" and "nothing due today" are not the same statement.
+ * @param contentPadding the surrounding scaffold's padding, so the list clears the top
+ *   bar and the navigation container. The extra 80dp at the bottom is FAB clearance:
+ *   both pages are top-level, so both have the FAB menu over their last row.
+ */
 @Composable
-fun HomeScreen(
+fun TaskList(
+    tasks: List<Task>?,
     contentPadding: PaddingValues,
-    viewModel: TasksViewModel = hiltViewModel()
+    emptyTitle: String,
+    emptySubtitle: String,
+    onToggle: (Task) -> Unit,
+    onDelete: (Task) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val tasks by viewModel.tasks.collectAsState()
-
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding(),
             bottom = contentPadding.calculateBottomPadding() + 80.dp,
@@ -77,12 +54,12 @@ fun HomeScreen(
     ) {
         when {
             tasks == null -> item { LoadingState() }
-            tasks!!.isEmpty() -> item { EmptyState() }
-            else -> items(tasks!!, key = { it.id }) { task ->
+            tasks.isEmpty() -> item { EmptyState(emptyTitle, emptySubtitle) }
+            else -> items(tasks, key = { it.id }) { task ->
                 TaskRow(
                     task = task,
-                    onToggle = { viewModel.toggleTask(task) },
-                    onDelete = { viewModel.deleteTask(task) }
+                    onToggle = { onToggle(task) },
+                    onDelete = { onDelete(task) }
                 )
             }
         }
@@ -102,7 +79,7 @@ private fun LoadingState() {
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(title: String, subtitle: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -111,12 +88,12 @@ private fun EmptyState() {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = stringResource(R.string.home_empty_title),
+            text = title,
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
-            text = stringResource(R.string.home_empty_subtitle),
+            text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

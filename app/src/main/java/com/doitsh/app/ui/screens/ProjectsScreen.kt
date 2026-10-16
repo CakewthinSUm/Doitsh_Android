@@ -28,7 +28,7 @@ class ProjectsViewModel @Inject constructor(
 
     /**
      * `null` until Room has actually emitted, so the screen can tell "still loading"
-     * apart from "genuinely empty" — matching [TasksViewModel.tasks].
+     * apart from "genuinely empty" — matching [TaskListViewModel.tasks].
      */
     val projects: StateFlow<List<Project>?> by lazy {
         repository.getAllProjects().stateIn(

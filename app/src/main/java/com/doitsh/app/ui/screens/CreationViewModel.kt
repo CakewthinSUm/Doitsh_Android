@@ -8,6 +8,7 @@ import com.doitsh.app.domain.repository.ProjectRepository
 import com.doitsh.app.domain.repository.TaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 @HiltViewModel
@@ -16,12 +17,17 @@ class CreationViewModel @Inject constructor(
     private val projectRepository: ProjectRepository
 ) : ViewModel() {
 
-    fun createTask(title: String, description: String?) {
+    /**
+     * @param dueDate when the task is due, or `null` for one with no deadline. A task
+     *   with no due date stays out of Today — see `Task.isDueTodayOrEarlier`.
+     */
+    fun createTask(title: String, description: String?, dueDate: LocalDateTime? = null) {
         viewModelScope.launch {
             taskRepository.addTask(
                 Task(
                     title = title,
-                    description = description
+                    description = description,
+                    dueDate = dueDate
                 )
             )
         }

@@ -2,13 +2,19 @@
     <string name="app_name">Doitsh</string>
 
     <!-- Navigation -->
-    <string name="nav_tasks">Tasks</string>
+    <string name="nav_today">Today</string>
+    <string name="nav_inbox">Inbox</string>
     <string name="nav_projects">Projects</string>
     <string name="nav_settings">Settings</string>
 
-    <!-- Home screen -->
-    <string name="home_empty_title">No tasks yet</string>
-    <string name="home_empty_subtitle">Tap + to create your first task</string>
+    <!-- Inbox screen -->
+    <string name="inbox_empty_title">Your inbox is empty</string>
+    <string name="inbox_empty_subtitle">Tap + to add a task</string>
+
+    <!-- Today screen -->
+    <string name="today_empty_title">Nothing due today</string>
+    <string name="today_empty_subtitle">Tasks due today or earlier show up here</string>
+
     <string name="task_completed">Completed</string>
     <string name="task_not_completed">Not completed</string>
     <string name="action_delete_task">Delete task</string>
@@ -27,7 +33,11 @@
     <string name="label_project_name">Project name</string>
     <string name="label_task_title">Task title</string>
     <string name="label_description_optional">Description (optional)</string>
+    <string name="label_due_date">Due date</string>
+    <string name="action_set_due_date">Set due date</string>
+    <string name="action_clear_due_date">Clear due date</string>
     <string name="action_save">Save</string>
+    <string name="action_ok">OK</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_back">Back</string>
 
