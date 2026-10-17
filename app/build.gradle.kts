@@ -1,3 +1,7 @@
+// Imported rather than written inline: inside this script `java` resolves to the
+// project's Java extension, so `java.util.Properties()` does not compile.
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     // No org.jetbrains.kotlin.android here: AGP 9 applies Kotlin itself.
@@ -6,6 +10,36 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
+
+// Release signing. The keystore lives outside the repository (`~/.android` by default)
+// and its credentials are read from, in order of precedence:
+//
+//   1. Gradle properties — `-Pdoitsh.storePassword=...` — which is what CI would use;
+//   2. `doitsh-release.properties` in the repository root, gitignored, for a workstation;
+//   3. environment variables `DOITSH_STORE_PASSWORD` / `DOITSH_KEY_PASSWORD`.
+//
+// Nothing secret is committed: when the passwords are absent the release build is left
+// unsigned rather than failing the whole `assemble`, so a fresh clone still builds and
+// `:app:assembleRelease` produces `app-release-unsigned.apk`.
+//
+// `storeFile` may be absolute, or `~/...`, or relative to the repository root.
+val localSigning = Properties().apply {
+    val file = rootProject.file("doitsh-release.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
+fun signingValue(key: String): String? =
+    (findProperty(key) as String?)
+        ?: localSigning.getProperty(key)
+        ?: System.getenv(key.replace('.', '_').uppercase())
+
+val releaseStoreFile = file(
+    signingValue("doitsh.storeFile")
+        ?: "${System.getProperty("user.home")}/.android/doitsh-release.jks"
+)
+val releaseStorePassword = signingValue("doitsh.storePassword")
+val releaseKeyPassword = signingValue("doitsh.keyPassword")
+val releaseKeyAlias = signingValue("doitsh.keyAlias") ?: "doitsh"
 
 android {
     namespace = "com.doitsh.app"
@@ -27,6 +61,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        val keystoreUsable = releaseStoreFile.exists() &&
+            releaseStorePassword != null && releaseKeyPassword != null
+        if (keystoreUsable) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -34,6 +81,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Only wire the config up when the keystore was actually found, so a clone
+            // without one still builds (and produces an unsigned APK).
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
 

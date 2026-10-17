@@ -160,6 +160,27 @@ From the command line:
 There is no configuration step. The app starts in Local mode with an empty database and
 works immediately.
 
+### Build a release APK
+
+```bash
+./gradlew :app:assembleRelease
+```
+
+The build is signed when it can find a keystore and its passwords, and left unsigned
+otherwise — a fresh clone still builds, producing `app-release-unsigned.apk`. To sign,
+set these Gradle properties (or `DOITSH_STORE_PASSWORD` / `DOITSH_KEY_PASSWORD` in the
+environment, or put them in a gitignored `doitsh-release.properties` at the repo root):
+
+| Property | Default |
+|---|---|
+| `doitsh.storeFile` | `~/.android/doitsh-release.jks` |
+| `doitsh.storePassword` | — (required to sign) |
+| `doitsh.keyAlias` | `doitsh` |
+| `doitsh.keyPassword` | — (required to sign) |
+
+> Keep the keystore and its passwords safe. An installed APK can only be upgraded by a
+> build signed with the same key; losing it means existing users must uninstall first.
+
 ### Run the server
 
 ```bash
