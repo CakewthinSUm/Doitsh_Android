@@ -68,10 +68,10 @@ import androidx.navigation3.scene.Scene
  * container as entry metadata ([navigationOrder]); Settings, which is pushed onto the
  * stack, publishes none. That gives three cases, and [navigationMotion] is the whole rule:
  *
- * - **Two positions** — a move between two bar destinations. Full-width slides in the
- *   direction of travel ([switchTransform]). This is the one transition a user can
- *   interrupt mid-flight by tapping another tab, which is what fixes its geometry; see
- *   the transform.
+ * - **Two positions** — a move between two bar destinations. A full-width slide in the
+ *   direction of travel, with the outgoing page settling back to rest instead of moving
+ *   ([switchTransform]). This is the one transition a user can interrupt mid-flight by
+ *   tapping another tab, which is what fixes its geometry; see the transform.
  * - **A position to none** — a screen pushed on top of a bar destination. A slide-in from
  *   the trailing edge ([pushTransform]), the container's forward convention.
  * - **None to a position** — leaving the pushed screen. A reveal ([revealTransform]), and
