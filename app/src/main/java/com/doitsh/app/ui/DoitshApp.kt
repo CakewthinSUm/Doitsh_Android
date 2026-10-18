@@ -232,11 +232,12 @@ fun DoitshApp() {
                     ),
                     entryProvider = entryProvider {
                         // Each top-level destination publishes its position in the bar as
-                        // metadata, which is how the transitions learn which way to slide
-                        // — see navigationSlideDirection. Position and content both come
-                        // from the destination list, so adding, reordering or replacing a
-                        // bar button needs no change here. Settings publishes no position:
-                        // it is pushed onto the stack, not selected from the container.
+                        // metadata, which is how the transitions tell a bar switch from a
+                        // stack push — see navigationMotion. Position and content both
+                        // come from the destination list, so adding, reordering or
+                        // replacing a bar button needs no change here. Settings publishes
+                        // no position: it is pushed onto the stack, not selected from the
+                        // container.
                         TopLevelDestinations.forEachIndexed { index, destination ->
                             entry(
                                 key = destination.key,
