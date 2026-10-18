@@ -103,9 +103,16 @@ data class TaskGroup(
  * [asInbox] does not filter by date and a task due last week is still simply "in the
  * inbox". An overdue Inbox task is reported as [TaskSection.OVERDUE] rather than LATER
  * so the section means the same thing on both pages.
+ *
+ * The clock is read inside [map], per emission, rather than captured when this flow is
+ * built. The ViewModels now live for the whole session — the pages sit in a pager instead
+ * of replacing one another on the back stack — so a date captured at construction would
+ * never be refreshed, and the app would still be calling yesterday "Today" the next
+ * morning. Reading it per emission means the next database change, or leaving and
+ * returning to the page, picks up the new day.
  */
-internal fun Flow<List<Task>>.asInboxGroups(today: LocalDate = LocalDate.now()): Flow<List<TaskGroup>> =
-    map { tasks -> tasks.sections(today) }
+internal fun Flow<List<Task>>.asInboxGroups(): Flow<List<TaskGroup>> =
+    map { tasks -> tasks.sections(LocalDate.now()) }
 
 /**
  * Today as sections: overdue first, then due today.
@@ -113,9 +120,16 @@ internal fun Flow<List<Task>>.asInboxGroups(today: LocalDate = LocalDate.now()):
  * [asToday] already drops completed and undated tasks, so only the first two sections
  * can appear here — but the sectioning is the same function, which is what keeps the
  * two pages from disagreeing about what "overdue" means.
+ *
+ * The clock is read per emission, for the reason given on [asInboxGroups]: this flow no
+ * longer restarts when the page is revisited, so the date has to be read when the list is
+ * computed.
  */
-internal fun Flow<List<Task>>.asTodayGroups(today: LocalDate = LocalDate.now()): Flow<List<TaskGroup>> =
-    map { tasks -> tasks.filter { it.isDueTodayOrEarlier(today) }.sections(today) }
+internal fun Flow<List<Task>>.asTodayGroups(): Flow<List<TaskGroup>> =
+    map { tasks ->
+        val today = LocalDate.now()
+        tasks.filter { it.isDueTodayOrEarlier(today) }.sections(today)
+    }
 
 /**
  * Groups an already-filtered list into the sections it should be drawn under, dropping

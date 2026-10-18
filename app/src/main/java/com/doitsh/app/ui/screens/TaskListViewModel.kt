@@ -33,10 +33,12 @@ abstract class TaskListViewModel(
      * apart from "genuinely empty" — an `initialValue = emptyList()` would render the
      * empty state for a frame on every cold start.
      *
-     * `WhileSubscribed(5000)` also gives the Today page its refresh: the filter is
-     * evaluated when the flow restarts, so coming back to the page re-reads the clock
-     * and a task that became due overnight appears without a restart. It does the same
-     * for the section boundaries, which are read from the same clock.
+     * `WhileSubscribed(5000)` stops the database read while the page is off screen (the
+     * pager keeps neighbouring pages composed but this page's subscription is the only
+     * thing keeping the query live), and restarts it on return. That restart no longer
+     * restarts the enclosing navigation entry — the ViewModel survives tab switches — so
+     * the date the Today filter uses is read per emission in `TaskFilters.kt` rather than
+     * here.
      *
      * Sections are grouped in the repository rather than here — see `TaskFilters.kt` —
      * so the rules are shared by both data modes and can be tested as plain Kotlin.

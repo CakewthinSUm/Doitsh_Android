@@ -13,9 +13,9 @@ import com.doitsh.app.ui.components.TaskList
 /**
  * The Inbox: tasks that have not been filed into a project yet.
  *
- * This is the app's landing page — the first destination in the navigation container —
- * because a task captured without a project is the case that needs no decision from the
- * user, and everything else is a refinement of it.
+ * One page of the home pager, beside Today and Projects — see `DoitshApp`'s `HomePager`.
+ * A task captured without a project is the case that needs no decision from the user, and
+ * everything else is a refinement of it, which is why nothing here asks for one.
  *
  * @param onEdit opens the task in the edit sheet. The sheet belongs to the app shell
  *   rather than to this screen, so that creating and editing go through one host and one

@@ -3,7 +3,6 @@ package com.doitsh.app.ui
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.togetherWith
 import androidx.compose.material3.MaterialTheme
@@ -31,9 +30,7 @@ import androidx.navigation3.scene.Scene
  * (`DoitshTheme` passes `MotionScheme.expressive()`), so navigation animates on the same
  * spring physics as the rest of the app.
  *
- * All three transitions here are positional, so they use the *spatial* specs. Opacity
- * would use the *effects* specs; see [switchTransform] for why the bar's switch keeps to
- * position.
+ * All transitions here are positional, so they use the *spatial* specs.
  *
  * ## The one rule: the animation is a function of the two scenes, and nothing else
  *
@@ -53,7 +50,7 @@ import androidx.navigation3.scene.Scene
  * `inPredictiveBack` is false the moment the finger lifts — so the rewind runs the
  * **forward** spec, over the very same segment the drag was seeking.
  *
- * One Settings → Today transition is therefore driven by up to three different specs, and
+ * One Settings → Home transition is therefore driven by up to three different specs, and
  * if they disagree the page jumps at the instant the user lets go — by an amount that
  * depends on the fraction the finger happened to release at, which is why the same
  * gesture looks fine one time and broken the next. This file exists to make that
@@ -64,21 +61,22 @@ import androidx.navigation3.scene.Scene
  * ## What a segment is
  *
  * NavDisplay never tells a transition *why* it is running, so the motion has to be read
- * off the scenes themselves. Each bar destination publishes its position in the navigation
- * container as entry metadata ([navigationOrder]); Settings, which is pushed onto the
- * stack, publishes none. That gives three cases, and [navigationMotion] is the whole rule:
+ * off the scenes themselves. A destination that lives on the stack's base level publishes
+ * its position in the navigation container as entry metadata ([navigationOrder]); Settings,
+ * which is pushed on top, publishes none. That gives two cases, and [navigationMotion] is
+ * the whole rule:
  *
- * - **Two positions** — a move between two bar destinations. A full-width slide in the
- *   direction of travel, with the outgoing page settling back to rest instead of moving
- *   ([switchTransform]). This is the one transition a user can interrupt mid-flight by
- *   tapping another tab, which is what fixes its geometry; see the transform.
- * - **A position to none** — a screen pushed on top of a bar destination. A slide-in from
+ * - **A position to none** — a screen pushed on top of the base level. A slide-in from
  *   the trailing edge ([pushTransform]), the container's forward convention.
  * - **None to a position** — leaving the pushed screen. A reveal ([revealTransform]), and
  *   the geometry the predictive back drag seeks.
  *
- * Nothing in this file names a destination, so adding, removing or reordering bar buttons
- * — or building a custom set of them — needs no change to these specs.
+ * The three top-level pages are not navigation segments at all: they sit in one
+ * `HorizontalPager` inside the single `Home` destination (`DoitshApp`), so moving between
+ * them is a scroll the pager animates, not a transition NavDisplay composes.
+ *
+ * Nothing in this file names a destination, so a different base level, or more than one,
+ * needs no change to these specs.
  */
 
 /**
@@ -107,16 +105,6 @@ private fun Scene<*>.navigationOrder(): Int? = this.metadata[NavigationOrderKey]
  * it is the one worth pinning down in tests.
  */
 internal sealed interface NavigationMotion {
-
-    /**
-     * A move between two positions in the navigation container: one bar destination to
-     * another. Slides in the direction of travel — pressing the button to the right
-     * brings that page in from the right.
-     *
-     * This is the only motion a tap can interrupt, so its geometry is chosen to survive
-     * that. See [switchTransform].
-     */
-    data class Switch(val direction: SlideDirection) : NavigationMotion
 
     /**
      * A push onto the stack: the destination being pushed published no position, so it
@@ -150,24 +138,10 @@ internal sealed interface NavigationMotion {
 internal fun navigationMotion(from: Int?, to: Int?): NavigationMotion =
     when {
         from == null && to != null -> NavigationMotion.Reveal
-        // Both publish a position: the bar's own buttons. A move between them is a
-        // switch, in the direction of travel.
-        from != null && to != null -> NavigationMotion.Switch(navigationSlideDirection(from, to))
         // Entering a pushed screen, or moving between two of them: forward, from the
         // trailing edge.
         else -> NavigationMotion.Push
     }
-
-/**
- * Which way the content travels when moving from container position [from] to [to].
- *
- * Moving to a later position (a button further right) is leftward travel, so the new page
- * enters from the trailing edge; moving back is the mirror. That is what makes the motion
- * follow the button that was pressed rather than a fixed convention, and it is why the
- * direction is read from the two positions instead of hard-coded.
- */
-internal fun navigationSlideDirection(from: Int, to: Int): SlideDirection =
-    if (to < from) SlideDirection.Right else SlideDirection.Left
 
 /**
  * The transition for [NavigationMotion.Push]: the incoming screen pushes in from the
@@ -228,64 +202,6 @@ private fun <T : Any> AnimatedContentTransitionScope<Scene<T>>.revealTransform(
         )
 
 /**
- * The transition for [NavigationMotion.Switch]: the incoming bar destination slides in from
- * the edge its direction names, over the page that is already there.
- *
- * ## Why the outgoing page does not move
- *
- * Tabs are the only navigation in this app that gets interrupted mid-flight: the three pages
- * are things the user compares, so a second or third tap routinely lands while the previous
- * switch is still running. Whatever the outgoing page does during the slide, it has to be
- * right in the interrupted case too — and "moving out of the way" is not.
- *
- * `AnimatedContent` retargets a running transition instead of restarting it. Tap Inbox while
- * Today is still switching, then Projects: the Inbox page is half-way across the frame when
- * Projects is asked to enter. If Inbox were also sliding out, it would already be half off
- * the frame while the new page starts from a full width away, and the frame between them is
- * empty for as long as it takes the newcomer to cover the gap — measured on the device, about
- * 300 ms of blank screen. Sliding the outgoing page out to the opposite side is worse still:
- * the two only tile the frame when they set off together, which an interruption prevents.
- *
- * Leaving the outgoing page in place makes that impossible. The frame is always covered by
- * the page that was already there; the new page slides in on top of it (Nav3 gives the target
- * the higher z-index during forward navigation) and covers it. An interruption is then just
- * another page sliding in over a scene that never left. Nothing to tile, so nothing to leave
- * a gap.
- *
- * ## What the outgoing page does
- *
- * It settles into its resting position — it does not slide anywhere, and it does not fade. It
- * is covered, then disposed.
- *
- * That is expressed as a slide with a zero target offset rather than as
- * `ExitTransition.None`, for a subtle but visible reason. An exiting scene may itself have
- * been half-way into a slide when the switch was interrupted: in a Today → Inbox → Projects
- * double tap, Inbox is part way in from the right when Projects is asked for. "Hold it where
- * it is" then freezes that half-arrived page with its left edge at an offset and its content
- * cut off at the frame boundary — which showed up on the device as a sliver of the old page
- * stuck along the edge while the new one came in. A zero-offset slide pulls it back to where
- * it belongs, so the page that gets covered is always a whole, correctly placed page, and it
- * is disposed only once the incoming slide has finished (`KeepUntilTransitionsFinished`).
- *
- * ## What is deliberately not here
- *
- * No fade and no scale: tabs are content being compared, not a hierarchy step, so the motion
- * is pages moving past each other. No parallax on the outgoing page either — see above for why
- * any outbound travel is wrong here.
- */
-private fun <T : Any> AnimatedContentTransitionScope<Scene<T>>.switchTransform(
-    spatial: FiniteAnimationSpec<IntOffset>,
-    direction: SlideDirection,
-): ContentTransform =
-    slideIntoContainer(towards = direction, animationSpec = spatial) togetherWith
-        (slideOutOfContainer(
-            towards = SlideDirection.Left,
-            animationSpec = spatial,
-            // Zero: the outgoing page returns to its resting place instead of travelling out.
-            targetOffset = { 0 },
-        ) + ExitTransition.KeepUntilTransitionsFinished)
-
-/**
  * The transform for one transition segment, decided by the two scenes alone.
  *
  * ## Why nothing here has opacity in it
@@ -304,8 +220,7 @@ private fun <T : Any> AnimatedContentTransitionScope<Scene<T>>.switchTransform(
  * a different spec is not a bug that can come back. The parallax already carries the depth
  * a fade would have added.
  *
- * [switchTransform] is purely spatial for the interruption reason described there. So all
- * three are slides, and the whole file uses one spec family.
+ * Both are slides, so the whole file uses one spec family.
  *
  * The platform can hold a dismissed Activity opaque for the whole drag and fade it only on
  * release; in-app Nav3 reports no release event and hands the gesture the entire fraction
@@ -316,8 +231,7 @@ private fun <T : Any> AnimatedContentTransitionScope<Scene<T>>.switchTransform(
 private fun <T : Any> AnimatedContentTransitionScope<Scene<T>>.sceneTransform(
     spatial: FiniteAnimationSpec<IntOffset>,
 ): ContentTransform =
-    when (val motion = navigationMotion(initialState.navigationOrder(), targetState.navigationOrder())) {
-        is NavigationMotion.Switch -> switchTransform(spatial, motion.direction)
+    when (navigationMotion(initialState.navigationOrder(), targetState.navigationOrder())) {
         NavigationMotion.Push -> pushTransform(spatial)
         NavigationMotion.Reveal -> revealTransform(spatial)
     }
