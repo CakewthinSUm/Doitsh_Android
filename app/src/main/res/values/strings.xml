@@ -18,6 +18,7 @@
     <string name="task_completed">Completed</string>
     <string name="task_not_completed">Not completed</string>
     <string name="action_delete_task">Delete task</string>
+    <string name="action_edit_task">Edit task</string>
 
     <!-- Task list sections. Ordered as they appear: overdue, today, later, undated,
          completed. -->
@@ -38,6 +39,7 @@
     <!-- Creation dialog -->
     <string name="dialog_new_project">New project</string>
     <string name="dialog_new_task">New task</string>
+    <string name="dialog_edit_task">Edit task</string>
     <string name="label_project_name">Project name</string>
     <string name="label_task_title">Task title</string>
     <string name="label_description_optional">Description (optional)</string>

@@ -68,19 +68,23 @@ or "Today" means, and the remote half is not a stub that quietly returns everyth
 Due dates are compared by calendar day, not by instant — a task due "today" is due
 today at 23:59 as much as at 00:01.
 
-### A new-task sheet, not a dialog
+### One task sheet, for creating and editing
 
 Creating a task is a fast, contextual capture, so it gets a modal bottom sheet rather
 than a dialog: the list stays visible behind it, it dismisses on a drag down, and the
-form sits where the keyboard is about to appear.
+form sits where the keyboard is about to appear. **Tapping a row opens the same sheet on
+that task**, seeded with its values — the five fields are the same either way, so they
+are one form rather than two that could drift apart.
 
 <p align="center">
   <img src="docs/images/new-task.png" alt="The New task bottom sheet" width="330">
 </p>
 
-The title field takes focus on open, and **Save is pinned outside the scroll region** —
-the sheet shrinks when the keyboard comes up, and a button at the end of the content
-would be pushed off-screen exactly when you have finished typing and want it.
+When creating, the title field takes focus on open; when editing it does not, because an
+edit usually starts with "change the date" rather than with the title. **Save is pinned
+outside the scroll region** either way — the sheet shrinks when the keyboard comes up,
+and a button at the end of the content would be pushed off-screen exactly when you have
+finished typing and want it.
 
 It fills in the fields the model has always carried but no earlier screen ever set:
 due date, priority, and the owning project.
@@ -212,7 +216,7 @@ Doitsh/
 │       ├── domain/           # Task and Project models, repository interfaces
 │       ├── di/               # Hilt modules
 │       └── ui/               # Compose screens, theme and components
-│           ├── components/   #   TaskList, TaskCreationSheet, navigation bar/rail
+│           ├── components/   #   TaskList, TaskEditorSheet, navigation bar/rail
 │           └── screens/      #   Today, Inbox, Projects, Settings + their ViewModels
 ├── server/                   # Ktor REST API server
 │   └── src/main/kotlin/com/doitsh/server/

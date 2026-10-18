@@ -2,6 +2,7 @@ package com.doitsh.app.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -68,6 +69,9 @@ import java.time.format.FormatStyle
  * @param contentPadding the surrounding scaffold's padding, so the list clears the top
  *   bar and the navigation container. The extra 80dp at the bottom is FAB clearance:
  *   both pages are top-level, so both have the FAB menu over their last row.
+ * @param onEdit called when a row is tapped. Tapping the row is the one gesture left
+ *   that does nothing else — the checkbox completes and the horizontal swipe deletes —
+ *   and it is the natural way to open the task itself.
  */
 @Composable
 fun TaskList(
@@ -77,6 +81,7 @@ fun TaskList(
     emptySubtitle: String,
     onToggle: (Task) -> Unit,
     onDelete: (Task) -> Unit,
+    onEdit: (Task) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Read once per composition of the list, not per row: every row's date label and
@@ -123,7 +128,8 @@ fun TaskList(
                         // The seam above every segment but the first of its group.
                         topGap = if (index == 0) 4.dp else ListItemDefaults.SegmentedGap,
                         onToggle = { onToggle(task) },
-                        onDelete = { onDelete(task) }
+                        onDelete = { onDelete(task) },
+                        onEdit = { onEdit(task) }
                     )
                 }
             }
@@ -171,7 +177,7 @@ private fun EmptyState(title: String, subtitle: String) {
  * The count is part of the label rather than a separate badge because it is read as one
  * phrase ("Overdue, 2"), and a badge would give it a shape that implies it is tappable.
  * `labelMedium` matches the other small section captions in the app — see
- * `TaskCreationSheet.SheetSection`.
+ * `TaskEditorSheet.SheetSection`.
  */
 @Composable
 private fun SectionHeader(group: TaskGroup, topPadding: Dp) {
@@ -215,9 +221,11 @@ private fun TaskRow(
     shapes: ListItemShapes,
     topGap: Dp,
     onToggle: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     val deleteLabel = stringResource(R.string.action_delete_task)
+    val editLabel = stringResource(R.string.action_edit_task)
     val dismissState = rememberSwipeToDismissBoxState()
 
     // Delete is part of the swipe, not part of the row: there is no trailing button at
@@ -249,6 +257,11 @@ private fun TaskRow(
     //
     // `mergeDescendants` stops at the checkbox, which merges itself, so ticking stays a
     // separate stop with its own "Not completed" description.
+    //
+    // The row's click is published by the `clickable` below, with its label passed there
+    // rather than redeclared here: a second `onClick` in this block would be a duplicate
+    // action on the same merged node. Without the label a screen reader would announce
+    // "double tap to activate", leaving the user to guess what activating a task does.
     val rowDescription = buildString {
         append(task.title)
         task.dueDate?.let {
@@ -327,7 +340,6 @@ private fun TaskRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(rowSemantics)
                 // Opaque: the swipe background is painted behind this row.
                 //
                 // The top of the container ramp, not the bottom. At `surfaceContainerLow`
@@ -340,6 +352,18 @@ private fun TaskRow(
                     color = MaterialTheme.colorScheme.taskRowContainer,
                     shape = shapes.shape,
                 )
+                // The tap target is the row, not the swipe container: a `clickable` on
+                // the `SwipeToDismissBox` would compete with the horizontal dismiss
+                // gesture for the same pointer stream. Here the dismiss gesture owns
+                // horizontal drags, so a tap that stays put is unambiguously a tap.
+                //
+                // After the background, not before: `clickable` draws its ripple at its
+                // own position in the chain, so a background below it would paint over
+                // the ripple and the row would appear not to react at all. The `clip`
+                // before it keeps the ripple inside the group's rounded end.
+                .clip(shapes.shape)
+                .clickable(onClickLabel = editLabel, onClick = onEdit)
+                .then(rowSemantics)
                 // Horizontal only: the tall element is the checkbox's 48dp touch
                 // target, so the row is already as tall as the platform requires and
                 // vertical padding would only add to it. The 16dp end inset replaces
