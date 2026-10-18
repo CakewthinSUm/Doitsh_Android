@@ -26,13 +26,11 @@ import androidx.navigation3.scene.Scene
  * that reads as sluggish and flat — two opaque screens dissolving into each other
  * rather than one screen replacing another.
  *
- * These specs replace that with a horizontal shared-axis push driven by the motion
- * scheme the theme already installs (`DoitshTheme` passes `MotionScheme.expressive()`),
- * so navigation finally animates on the same spring physics as the rest of the app.
+ * These specs replace that with motion driven by the scheme the theme already installs
+ * (`DoitshTheme` passes `MotionScheme.expressive()`), so navigation animates on the same
+ * spring physics as the rest of the app.
  *
- * Spatial motion (position, scale) uses the *spatial* specs; opacity uses the
- * *effects* specs. That split is the point of the two families in `MotionScheme` —
- * using one for both is what makes M3 Expressive motion look wrong.
+ * All transitions here are positional, so they use the *spatial* specs.
  *
  * ## The one rule: the animation is a function of the two scenes, and nothing else
  *
@@ -52,7 +50,7 @@ import androidx.navigation3.scene.Scene
  * `inPredictiveBack` is false the moment the finger lifts — so the rewind runs the
  * **forward** spec, over the very same segment the drag was seeking.
  *
- * One Settings → Today transition is therefore driven by up to three different specs, and
+ * One Settings → Home transition is therefore driven by up to three different specs, and
  * if they disagree the page jumps at the instant the user lets go — by an amount that
  * depends on the fraction the finger happened to release at, which is why the same
  * gesture looks fine one time and broken the next. This file exists to make that
@@ -60,19 +58,25 @@ import androidx.navigation3.scene.Scene
  * `targetState`, and all three specs return the same function. Which spec Nav3 happens to
  * select is then unobservable.
  *
- * ## Which way a screen travels
+ * ## What a segment is
  *
- * NavDisplay never tells a transition *why* it is running, so the direction has to be read
- * off the scenes themselves. Each bar destination publishes its position in the navigation
- * container as entry metadata ([navigationOrder]), and [navigationSlideDirection] compares
- * the outgoing and incoming positions: a destination further along the bar is entered from
- * the trailing edge, and one further back from the leading edge. Nothing in this file names
- * a destination, so adding, removing or reordering bar buttons — or building a custom set of
- * them — needs no change to these specs.
+ * NavDisplay never tells a transition *why* it is running, so the motion has to be read
+ * off the scenes themselves. A destination that lives on the stack's base level publishes
+ * its position in the navigation container as entry metadata ([navigationOrder]); Settings,
+ * which is pushed on top, publishes none. That gives two cases, and [navigationMotion] is
+ * the whole rule:
  *
- * A destination that published *no* position was pushed onto the stack rather than selected
- * from the container (Settings is the one today). Leaving one of those is a reveal, not a
- * move between container positions — see [navigationMotion].
+ * - **A position to none** — a screen pushed on top of the base level. A slide-in from
+ *   the trailing edge ([pushTransform]), the container's forward convention.
+ * - **None to a position** — leaving the pushed screen. A reveal ([revealTransform]), and
+ *   the geometry the predictive back drag seeks.
+ *
+ * The three top-level pages are not navigation segments at all: they sit in one
+ * `HorizontalPager` inside the single `Home` destination (`DoitshApp`), so moving between
+ * them is a scroll the pager animates, not a transition NavDisplay composes.
+ *
+ * Nothing in this file names a destination, so a different base level, or more than one,
+ * needs no change to these specs.
  */
 
 /**
@@ -93,37 +97,20 @@ internal fun navigationOrder(index: Int): Map<String, Any> =
 private fun Scene<*>.navigationOrder(): Int? = this.metadata[NavigationOrderKey]
 
 /**
- * The direction to slide when moving between two positions in the navigation container.
- *
- * [SlideDirection.Left] means the content travels leftward, so the incoming screen enters
- * from the trailing edge — the direction you would expect when the button you pressed is to
- * the right of the one you came from. [SlideDirection.Right] is its mirror.
- *
- * Only meaningful for [NavigationMotion.Push]; a [NavigationMotion.Reveal] has a fixed
- * direction of its own, because a pop is not a move between container positions.
- */
-internal fun navigationSlideDirection(from: Int?, to: Int?): SlideDirection {
-    val movedBackward = from != null && to != null && to < from
-    return if (movedBackward) SlideDirection.Right else SlideDirection.Left
-}
-
-/**
  * What a transition segment is doing, decided purely by the two container positions.
  *
  * Kept as a separate value rather than folded into the transform so the rule is a pure
  * function that can be tested without a navigation host — the same reason
- * [navigationSlideDirection] is split out. This is the rule the three specs have to agree
- * on, so it is the one worth pinning down in tests.
+ * [navigationMotion] is split out. This is the rule the three specs have to agree on, so
+ * it is the one worth pinning down in tests.
  */
 internal sealed interface NavigationMotion {
 
     /**
-     * A move between two positions in the navigation container, in [direction].
-     *
-     * Also what a push looks like: the destination being pushed published no position, so
-     * it enters from the trailing edge, which is the container's forward convention.
+     * A push onto the stack: the destination being pushed published no position, so it
+     * enters from the trailing edge, which is the container's forward convention.
      */
-    data class Push(val direction: SlideDirection) : NavigationMotion
+    data object Push : NavigationMotion
 
     /**
      * Leaving a pushed screen and revealing whatever it was covering — a pop, a
@@ -149,29 +136,33 @@ internal sealed interface NavigationMotion {
  * than the push's.
  */
 internal fun navigationMotion(from: Int?, to: Int?): NavigationMotion =
-    if (from == null && to != null) {
-        NavigationMotion.Reveal
-    } else {
-        NavigationMotion.Push(navigationSlideDirection(from, to))
+    when {
+        from == null && to != null -> NavigationMotion.Reveal
+        // Entering a pushed screen, or moving between two of them: forward, from the
+        // trailing edge.
+        else -> NavigationMotion.Push
     }
 
 /**
- * The transition for [NavigationMotion.Push]: the incoming screen pushes in from the side
- * the destination sits on, while the outgoing screen slides a third of the way out.
+ * The transition for [NavigationMotion.Push]: the incoming screen pushes in from the
+ * trailing edge, while the outgoing screen slides a third of the way out.
  *
  * The outgoing screen deliberately does not travel the full width — it parallaxes behind
  * the incoming one, which is what gives the push a sense of depth rather than a flat wipe.
+ *
+ * The direction is fixed rather than derived from bar order: a push is a stack operation,
+ * and the screen underneath is the one this screen was opened from, not a neighbouring
+ * destination in the bar.
  */
 private fun <T : Any> AnimatedContentTransitionScope<Scene<T>>.pushTransform(
     spatial: FiniteAnimationSpec<IntOffset>,
-    direction: SlideDirection,
 ): ContentTransform =
     slideIntoContainer(
-        towards = direction,
+        towards = SlideDirection.Left,
         animationSpec = spatial,
     ) togetherWith
         slideOutOfContainer(
-            towards = direction,
+            towards = SlideDirection.Left,
             animationSpec = spatial,
             // A third of the full slide: the outgoing screen keeps its place in
             // the hierarchy instead of exiting the frame entirely.
@@ -213,7 +204,7 @@ private fun <T : Any> AnimatedContentTransitionScope<Scene<T>>.revealTransform(
 /**
  * The transform for one transition segment, decided by the two scenes alone.
  *
- * ## Why there is no opacity in either transform
+ * ## Why nothing here has opacity in it
  *
  * A *seeked* transition is evaluated by play time: fraction `f` means play time
  * `f * totalDuration`, and any opacity animation is finished once play time passes its
@@ -223,22 +214,25 @@ private fun <T : Any> AnimatedContentTransitionScope<Scene<T>>.revealTransform(
  * so it tracks the finger for the whole gesture and is still mid-flight whenever the user
  * lets go.
  *
+ * That is why [pushTransform] and [revealTransform] — the two that a predictive back
+ * gesture can seek — are purely spatial, and why no spec swap can move an opacity value on
+ * those segments: the cross-fade that used to appear when a cancelled gesture rewound under
+ * a different spec is not a bug that can come back. The parallax already carries the depth
+ * a fade would have added.
+ *
+ * Both are slides, so the whole file uses one spec family.
+ *
  * The platform can hold a dismissed Activity opaque for the whole drag and fade it only on
  * release; in-app Nav3 reports no release event and hands the gesture the entire fraction
  * range, so there is no such moment to hang a fade on. `docs/navbar-comparison.png` is the
  * reference the card design was matched against; Todoist's Settings is a separate Activity,
  * so its release-fade is not reachable from here.
- *
- * Staying purely spatial also means no spec swap can ever move an opacity value, because no
- * spec animates one — the cross-fade that used to appear when a cancelled gesture rewound
- * under a different spec is not a bug that can come back. The parallax already carries the
- * depth a fade would have added.
  */
 private fun <T : Any> AnimatedContentTransitionScope<Scene<T>>.sceneTransform(
     spatial: FiniteAnimationSpec<IntOffset>,
 ): ContentTransform =
-    when (val motion = navigationMotion(initialState.navigationOrder(), targetState.navigationOrder())) {
-        is NavigationMotion.Push -> pushTransform(spatial, motion.direction)
+    when (navigationMotion(initialState.navigationOrder(), targetState.navigationOrder())) {
+        NavigationMotion.Push -> pushTransform(spatial)
         NavigationMotion.Reveal -> revealTransform(spatial)
     }
 

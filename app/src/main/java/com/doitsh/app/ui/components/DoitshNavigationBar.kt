@@ -1,7 +1,10 @@
 package com.doitsh.app.ui.components
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationItemColors
@@ -19,33 +22,30 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
-import com.doitsh.app.domain.model.Task
+import com.doitsh.app.R
 
 /**
- * A top-level destination, shared by the bottom bar and the navigation rail so
- * the two containers can never drift apart.
+ * The three pages of the home pager, shared by the bottom bar, the navigation rail and
+ * the pager itself so the three can never drift apart.
  *
- * A destination carries its own [content] as well as its icon and label, so the
- * list of them is the single place a navigation container is described: adding a
- * button means adding one entry here, and the bar, the rail, the ordering that
- * drives the transition direction, and the entry provider all follow from it.
+ * Declaration order is page order, bar order and rail order — all of it read from
+ * `entries`, so adding, removing or reordering a page is a change to this enum and
+ * nothing else. Adding a tab needs at least three to five items to stay within what
+ * Material's navigation bar is specified for; the app has exactly three.
  *
- * @param content what to render for this destination, given the content padding of
- *   the surrounding scaffold and the shell's request to open a task. A
- *   `@Composable (PaddingValues, (Task) -> Unit) -> Unit` rather than a
- *   `@Composable () -> Unit` because every screen here needs that padding to clear
- *   the top bar and the navigation container, and the list pages need the callback to
- *   hand a tapped row to the edit sheet — which belongs to the shell, not to them. The
- *   destinations that do not edit tasks simply ignore the second argument.
+ * The bar, the rail and the pager are all inside one `Home` navigation destination
+ * (`DoitshApp`), so a tab is not a back-stack entry: selecting one scrolls the pager,
+ * and the system back gesture never moves between tabs.
  */
-class DoitshNavigationDestination(
-    val key: NavKey,
+enum class HomeTab(
     val icon: ImageVector,
     @StringRes val label: Int,
-    val content: @Composable (PaddingValues, onEdit: (Task) -> Unit) -> Unit,
-)
+) {
+    TODAY(Icons.Filled.Today, R.string.nav_today),
+    INBOX(Icons.Outlined.Inbox, R.string.nav_inbox),
+    PROJECTS(Icons.Outlined.Folder, R.string.nav_projects),
+}
 
 /**
  * Whether the top-level destinations belong in a rail rather than the bottom bar.
@@ -97,9 +97,8 @@ fun rememberUseNavigationRail(): Boolean {
  */
 @Composable
 fun DoitshNavigationBar(
-    destinations: List<DoitshNavigationDestination>,
-    selectedKey: NavKey,
-    onSelect: (NavKey) -> Unit,
+    selectedTab: HomeTab,
+    onSelect: (HomeTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val sizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
@@ -107,12 +106,12 @@ fun DoitshNavigationBar(
         sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
     ShortNavigationBar(modifier = modifier) {
-        destinations.forEach { destination ->
+        HomeTab.entries.forEach { tab ->
             ShortNavigationBarItem(
-                selected = destination.key == selectedKey,
-                onClick = { onSelect(destination.key) },
-                icon = { Icon(destination.icon, contentDescription = null) },
-                label = { Text(stringResource(destination.label)) },
+                selected = tab == selectedTab,
+                onClick = { onSelect(tab) },
+                icon = { Icon(tab.icon, contentDescription = null) },
+                label = { Text(stringResource(tab.label)) },
                 iconPosition = if (isMediumWidth) {
                     NavigationItemIconPosition.Start
                 } else {
@@ -135,21 +134,20 @@ fun DoitshNavigationBar(
  */
 @Composable
 fun DoitshNavigationRail(
-    destinations: List<DoitshNavigationDestination>,
-    selectedKey: NavKey,
-    onSelect: (NavKey) -> Unit,
+    selectedTab: HomeTab,
+    onSelect: (HomeTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val railState = rememberWideNavigationRailState()
     val isExpanded = railState.currentValue == WideNavigationRailValue.Expanded
 
     WideNavigationRail(modifier = modifier, state = railState) {
-        destinations.forEach { destination ->
+        HomeTab.entries.forEach { tab ->
             WideNavigationRailItem(
-                selected = destination.key == selectedKey,
-                onClick = { onSelect(destination.key) },
-                icon = { Icon(destination.icon, contentDescription = null) },
-                label = { Text(stringResource(destination.label)) },
+                selected = tab == selectedTab,
+                onClick = { onSelect(tab) },
+                icon = { Icon(tab.icon, contentDescription = null) },
+                label = { Text(stringResource(tab.label)) },
                 railExpanded = isExpanded,
                 colors = DoitshNavigationItemColors,
             )

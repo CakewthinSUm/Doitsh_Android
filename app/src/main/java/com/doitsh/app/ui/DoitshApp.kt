@@ -3,6 +3,9 @@ package com.doitsh.app.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -10,14 +13,12 @@ import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Today
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.*
 import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,8 +37,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.doitsh.app.R
 import com.doitsh.app.domain.model.Task
 import com.doitsh.app.ui.components.DoitshNavigationBar
-import com.doitsh.app.ui.components.DoitshNavigationDestination
 import com.doitsh.app.ui.components.DoitshNavigationRail
+import com.doitsh.app.ui.components.HomeTab
 import com.doitsh.app.ui.components.TaskEditorSheet
 import com.doitsh.app.ui.components.rememberUseNavigationRail
 import com.doitsh.app.ui.screens.CreationViewModel
@@ -51,65 +52,28 @@ import kotlinx.serialization.Serializable
 /**
  * Navigation 3 destinations. Each key is `@Serializable` so the back stack can be
  * persisted and restored across process death by `rememberNavBackStack`.
+ *
+ * There is only one top-level destination. Today, Inbox and Projects are *pages* of the
+ * pager inside it rather than entries of their own: they are three views of the same
+ * level of the app, and putting them in one pager is what lets them be swiped between and
+ * keeps their transitions out of the back stack entirely — see [HomePager].
  */
 @Serializable
-data object Today : NavKey
-
-@Serializable
-data object Inbox : NavKey
-
-@Serializable
-data object Projects : NavKey
+data object Home : NavKey
 
 @Serializable
 data object Settings : NavKey
 
 /**
- * Three destinations: Material 3 Expressive asks a navigation bar to hold three to
- * five, and Settings is reached from the top bar instead.
+ * The shell: a navigation container whose pages sit under one [Home] destination.
  *
- * The order is the order they appear in the bar, the order the transitions slide in,
- * and the order they are registered with NavDisplay — all of it read from this one
- * list, so nothing here has to be kept in step by hand.
- *
- * Today leads and Inbox follows, which is the arrangement that makes the landing page
- * the one you open the app to *do* something about rather than the one you file things
- * into. Shared by the bottom bar and the wide-screen navigation rail so the two
- * containers can never drift apart.
- *
- * The two list pages also need a way to hand a tapped task to the edit sheet, which lives
- * in the shell above them ([DoitshApp]). Their content takes an `onEdit` the shell
- * supplies at render time, rather than capturing one here: this list is a constant, and
- * a lambda holding shell state would make it one that has to be rebuilt on every
- * recomposition of the shell. Projects does not take it — nothing there edits a task yet.
+ * The top bar, the bottom bar / rail and the FAB menu belong to the shell rather than to
+ * any page, which is why the pager's state is created here — the bar drives it and the
+ * top bar's title reads it. See [HomePager] for what is inside it.
  */
-private val TopLevelDestinations = listOf(
-    DoitshNavigationDestination(Today, Icons.Filled.Today, R.string.nav_today) { padding, onEdit ->
-        TodayScreen(contentPadding = padding, onEdit = onEdit)
-    },
-    DoitshNavigationDestination(Inbox, Icons.Outlined.Inbox, R.string.nav_inbox) { padding, onEdit ->
-        InboxScreen(contentPadding = padding, onEdit = onEdit)
-    },
-    DoitshNavigationDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects) { padding, _ ->
-        ProjectsScreen(contentPadding = padding)
-    },
-)
-
-/**
- * The keys of those destinations, so "is this page one of the bar's own?" is a lookup
- * rather than a comparison against a named page.
- *
- * This is the hierarchy the navigation container belongs to. Settings is reached from
- * the top bar and pushed on top of the top-level pages rather than being one of them,
- * so while it is open the bar would be showing a selected destination that no longer
- * matches the screen — and tapping it would throw the page away. The shell therefore
- * renders its chrome for the top level only.
- */
-private val TopLevelKeys: Set<NavKey> = TopLevelDestinations.map { it.key }.toSet()
-
 @Composable
 fun DoitshApp() {
-    val backStack = rememberNavBackStack(Today)
+    val backStack = rememberNavBackStack(Home)
     var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var creationDialog by remember { mutableStateOf<CreationDialog?>(null) }
     // What the task sheet is open for, or `null` when it is closed. One piece of state
@@ -126,20 +90,27 @@ fun DoitshApp() {
     // rememberUseNavigationRail. The app itself stays single-pane either way.
     val useNavigationRail = rememberUseNavigationRail()
 
-    // Read once per frame and passed to the three places that hang off the top level
-    // (the rail, the bottom bar, the FAB menu), so they can never disagree about which
-    // page is on screen. Settings is not top level: it is a page pushed on top, and the
-    // navigation container belongs to the level underneath it.
-    val isTopLevel = backStack.last() in TopLevelKeys
+    // The pager lives here rather than inside the Home entry because the bar, the rail
+    // and the top bar's title are outside it: all three read and drive this one state.
+    //
+    // `targetPage` rather than `currentPage` for the selection: a swipe's current page
+    // changes only once the drag has passed the halfway point, but a bar tap jumps
+    // straight to the target, and `currentPage` would then animate through every page in
+    // between — the pill and the title would flick through Inbox on the way to Projects.
+    val pagerState = rememberPagerState { HomeTab.entries.size }
+    val currentTab = HomeTab.entries[pagerState.targetPage]
+
+    // Settings is not top level: it is a page pushed on top, and the navigation container
+    // belongs to the level underneath it.
+    val isTopLevel = backStack.last() == Home
 
     BackHandler(fabMenuExpanded) { fabMenuExpanded = false }
 
     Row(modifier = Modifier.fillMaxSize()) {
         if (useNavigationRail && isTopLevel) {
             DoitshNavigationRail(
-                destinations = TopLevelDestinations,
-                selectedKey = backStack.last(),
-                onSelect = { backStack.selectTopLevel(it) },
+                selectedTab = currentTab,
+                onSelect = { tab -> scope.launch { pagerState.animateScrollToPage(tab.ordinal) } },
             )
         }
 
@@ -153,15 +124,11 @@ fun DoitshApp() {
                     title = {
                         Text(
                             text = when (val current = backStack.last()) {
-                                // A top-level page is titled with the label its own
-                                // navigation button carries, read from the destination
-                                // list — so a page cannot end up labelled one thing in
-                                // the bar and another in the top bar.
-                                in TopLevelKeys -> stringResource(
-                                    TopLevelDestinations
-                                        .first { it.key == current }
-                                        .label
-                                )
+                                // A page is titled with the label its own navigation
+                                // button carries, read from the same enum — so a page
+                                // cannot end up labelled one thing in the bar and another
+                                // in the top bar.
+                                Home -> stringResource(currentTab.label)
                                 Settings -> stringResource(R.string.nav_settings)
                                 else -> stringResource(R.string.app_name)
                             }
@@ -203,9 +170,8 @@ fun DoitshApp() {
             bottomBar = {
                 if (!useNavigationRail && isTopLevel) {
                     DoitshNavigationBar(
-                        destinations = TopLevelDestinations,
-                        selectedKey = backStack.last(),
-                        onSelect = { backStack.selectTopLevel(it) },
+                        selectedTab = currentTab,
+                        onSelect = { tab -> scope.launch { pagerState.animateScrollToPage(tab.ordinal) } },
                     )
                 }
             },
@@ -231,20 +197,17 @@ fun DoitshApp() {
                         rememberViewModelStoreNavEntryDecorator()
                     ),
                     entryProvider = entryProvider {
-                        // Each top-level destination publishes its position in the bar as
-                        // metadata, which is how the transitions learn which way to slide
-                        // — see navigationSlideDirection. Position and content both come
-                        // from the destination list, so adding, reordering or replacing a
-                        // bar button needs no change here. Settings publishes no position:
-                        // it is pushed onto the stack, not selected from the container.
-                        TopLevelDestinations.forEachIndexed { index, destination ->
-                            entry(
-                                key = destination.key,
-                                metadata = navigationOrder(index),
-                            ) {
-                                SceneSurface {
-                                    destination.content(padding) { taskSheet = TaskSheet(it) }
-                                }
+                        // Home publishes a container position so a Settings push is
+                        // recognisable as a push and its pop as a reveal; see
+                        // navigationMotion. It is the only destination at this level, so
+                        // the position is a constant.
+                        entry<Home>(metadata = navigationOrder(0)) {
+                            SceneSurface {
+                                HomePager(
+                                    contentPadding = padding,
+                                    state = pagerState,
+                                    onEdit = { taskSheet = TaskSheet(it) },
+                                )
                             }
                         }
                         entry<Settings> {
@@ -409,20 +372,89 @@ private fun SceneSurface(content: @Composable () -> Unit) {
 }
 
 /**
- * Switches top-level destinations without growing the back stack: the current
- * destination is replaced rather than pushed.
+ * The three top-level pages, side by side in one horizontal pager.
+ *
+ * ## Why one pager rather than three destinations
+ *
+ * Today, Inbox and Projects are the same level of the app — three views of one task list
+ * — so moving between them is not a navigation step that deserves a back-stack entry.
+ * As three Nav3 destinations they could only be *tapped*: switching meant replacing the
+ * stack (`clear(); add(key)`), which Nav3 sees as a new stack rather than a pop or a
+ * push, and the transition had to guess what the swap meant from the entries themselves.
+ * It also meant each switch destroyed the page's ViewModelStore, so coming back to a page
+ * reloaded it from the database.
+ *
+ * A pager owns the motion instead. A drag follows the finger, a release resolves by
+ * velocity, and a second swipe mid-animation is just another scroll — there is no
+ * transition to interrupt, so the interrupted case (a tap landing while the previous
+ * switch is still running) needs no special geometry and cannot leave a blank frame
+ * between two pages. A tap from the bar animates over exactly the same scroll state.
+ *
+ * ## The pager and the rows' swipe-to-delete
+ *
+ * Pointer events are dispatched to the deepest hit target first, and `SwipeToDismissBox`
+ * on a task row is a child of this pager. It waits for touch slop and, when it sees a
+ * horizontal drag, consumes it before the pager's nested-scroll handling is reached — so
+ * a drag that starts on a card stays with the card, and a drag that starts anywhere else
+ * (the list's side margins, the gaps between rows, the empty and loading states, the space
+ * below the last row) reaches the pager.
+ *
+ * That is the intended division, and it has one consequence worth knowing: the row's
+ * dismiss is one-directional, but it still claims drags in *both* directions, so a
+ * rightward drag that starts on a card does nothing rather than paging back. Paging back
+ * has to start outside the cards.
+ *
+ * ## Page state
+ *
+ * The pager itself keeps each page's scroll position, but it only saves the state of the
+ * pages that are currently composed: `LazySaveableStateHolder` drops the keys of pages
+ * that scrolled out of composition, and after process death the off-screen pages come
+ * back with a fresh list position. [rememberSaveableStateHolder] wraps the pager and each
+ * page provides its state under its tab, so all three survive either way.
  */
-private fun NavBackStack<NavKey>.selectTopLevel(key: NavKey) {
-    if (lastOrNull() == key) return
-    clear()
-    add(key)
+@Composable
+private fun HomePager(
+    contentPadding: PaddingValues,
+    state: PagerState,
+    onEdit: (Task) -> Unit,
+) {
+    val pageStateHolder = rememberSaveableStateHolder()
+
+    HorizontalPager(
+        state = state,
+        modifier = Modifier.fillMaxSize(),
+    ) { page ->
+        val tab = HomeTab.entries[page]
+        pageStateHolder.SaveableStateProvider(tab) {
+            // Opaque per page, for the same reason SceneSurface is opaque per entry: for
+            // the length of a swipe two pages are on screen at once, and a page that
+            // drew no background would composite straight onto its neighbour's text.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                when (tab) {
+                    HomeTab.TODAY -> TodayScreen(
+                        contentPadding = contentPadding,
+                        onEdit = onEdit,
+                    )
+                    HomeTab.INBOX -> InboxScreen(
+                        contentPadding = contentPadding,
+                        onEdit = onEdit,
+                    )
+                    HomeTab.PROJECTS -> ProjectsScreen(contentPadding = contentPadding)
+                }
+            }
+        }
+    }
 }
 
 /**
  * Opens a destination on top of the current one, so system back returns to where
- * the user came from. Settings uses this rather than [selectTopLevel]: it is
- * reached from a top bar action, not from the navigation bar, and clearing the
- * stack there would make back exit the app instead of returning to the list.
+ * the user came from. Settings uses this: it is reached from a top bar action, not
+ * from the navigation container, and replacing the stack there would make back exit
+ * the app instead of returning to the list.
  */
 private fun NavBackStack<NavKey>.navigateTo(key: NavKey) {
     if (lastOrNull() == key) return

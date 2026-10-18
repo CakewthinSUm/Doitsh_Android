@@ -230,10 +230,16 @@ Doitsh/
 └── docs/                     # Screenshots used by this README
 ```
 
-The app's navigation is a **Navigation 3** back stack — `Today`, `Inbox` and `Projects`
-sit in the bar, and `Settings` is pushed on top of them. Because it is pushed rather
-than selected, the bar and rail hide while it is open and its top bar carries a back
-arrow instead.
+The app's navigation is a **Navigation 3** back stack with one top-level destination:
+`Home`. Today, Inbox and Projects are pages of a `HorizontalPager` inside it, so they can
+be swiped between as well as selected from the bar, and moving between them never touches
+the back stack. `Settings` is pushed on top of `Home`. Because it is pushed rather than
+selected, the bar and rail hide while it is open and its top bar carries a back arrow
+instead.
+
+A horizontal drag that starts on a task card belongs to that row's swipe-to-delete;
+a drag anywhere else — the list's side margins, the gaps between rows, the empty and
+loading states — pages between tabs.
 
 ### A note on the transitions
 
@@ -242,7 +248,8 @@ past each other, so every destination needs an opaque background of its own. Wit
 one, two screens composite straight onto each other and their text superimposes — which
 looks like a cross-fade, reads as a scale-down mid-drag, and was originally
 misdiagnosed as a predictive-back bug. Each entry is therefore wrapped in a
-`SceneSurface` that paints the theme's `background`. See
+`SceneSurface` that paints the theme's `background`, and each pager page carries the same
+background for the same reason. See
 [`DoitshApp.kt`](app/src/main/java/com/doitsh/app/ui/DoitshApp.kt) for the full account.
 
 <br>
