@@ -2,6 +2,7 @@ package com.doitsh.app.ui.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.doitsh.app.data.repository.TaskGroup
 import com.doitsh.app.domain.model.Task
 import com.doitsh.app.domain.repository.TaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +25,7 @@ import javax.inject.Inject
  */
 abstract class TaskListViewModel(
     private val repository: TaskRepository,
-    private val source: Flow<List<Task>>,
+    private val source: Flow<List<TaskGroup>>,
 ) : ViewModel() {
 
     /**
@@ -34,9 +35,13 @@ abstract class TaskListViewModel(
      *
      * `WhileSubscribed(5000)` also gives the Today page its refresh: the filter is
      * evaluated when the flow restarts, so coming back to the page re-reads the clock
-     * and a task that became due overnight appears without a restart.
+     * and a task that became due overnight appears without a restart. It does the same
+     * for the section boundaries, which are read from the same clock.
+     *
+     * Sections are grouped in the repository rather than here — see `TaskFilters.kt` —
+     * so the rules are shared by both data modes and can be tested as plain Kotlin.
      */
-    val tasks: StateFlow<List<Task>?> by lazy {
+    val groups: StateFlow<List<TaskGroup>?> by lazy {
         source.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

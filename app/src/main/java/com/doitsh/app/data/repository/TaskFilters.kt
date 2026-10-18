@@ -4,6 +4,7 @@ import com.doitsh.app.domain.model.Task
 import com.doitsh.app.domain.model.isDueTodayOrEarlier
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 /**
  * The two derived task lists the app's first two pages show.
@@ -51,3 +52,102 @@ internal fun Flow<List<Task>>.asToday(): Flow<List<Task>> =
     map { tasks ->
         tasks.filter { it.isDueTodayOrEarlier() }.sortedBy { it.dueDate }
     }
+
+/**
+ * The section a task is drawn under on the two list pages.
+ *
+ * The list is no longer a flat sequence of equal rows: tasks are grouped by *when they
+ * are due*, because "what is overdue", "what is due today" and "what is only an idea"
+ * are three different kinds of obligation and a single sorted list makes the reader
+ * work that out row by row. The groups are computed here, next to the two filters, so
+ * both data modes and both pages agree — and so the rule can be unit-tested without a
+ * Compose runtime.
+ *
+ * Declaration order is display order.
+ */
+enum class TaskSection {
+    /** Due before today. Only the Today page can produce these from open tasks. */
+    OVERDUE,
+
+    /** Due today. */
+    TODAY,
+
+    /** Due after today. */
+    LATER,
+
+    /** No due date at all. */
+    NO_DATE,
+
+    /**
+     * Completed tasks, always last.
+     *
+     * A section of their own rather than being mixed into the date groups: the Inbox
+     * deliberately keeps completed tasks (there is no completed-tasks view, so hiding
+     * them would make a mistaken tick impossible to undo), and a ticked task has no
+     * meaningful place among things still to do. Keeping them together also leaves the
+     * live groups free of struck-through rows.
+     */
+    COMPLETED,
+}
+
+/** One section of a list page: its identity and the tasks drawn under it. */
+data class TaskGroup(
+    val section: TaskSection,
+    val tasks: List<Task>,
+)
+
+/**
+ * The Inbox as sections: open tasks by date, then the completed ones.
+ *
+ * Every open Inbox task is due-later, due-today or undated — never overdue, because
+ * [asInbox] does not filter by date and a task due last week is still simply "in the
+ * inbox". An overdue Inbox task is reported as [TaskSection.OVERDUE] rather than LATER
+ * so the section means the same thing on both pages.
+ */
+internal fun Flow<List<Task>>.asInboxGroups(today: LocalDate = LocalDate.now()): Flow<List<TaskGroup>> =
+    map { tasks -> tasks.sections(today) }
+
+/**
+ * Today as sections: overdue first, then due today.
+ *
+ * [asToday] already drops completed and undated tasks, so only the first two sections
+ * can appear here — but the sectioning is the same function, which is what keeps the
+ * two pages from disagreeing about what "overdue" means.
+ */
+internal fun Flow<List<Task>>.asTodayGroups(today: LocalDate = LocalDate.now()): Flow<List<TaskGroup>> =
+    map { tasks -> tasks.filter { it.isDueTodayOrEarlier(today) }.sections(today) }
+
+/**
+ * Groups an already-filtered list into the sections it should be drawn under, dropping
+ * empty sections and ordering tasks inside each one.
+ *
+ * A task with no due date sorts into NO_DATE rather than being treated as due today:
+ * undated work is not a deadline, which is the same rule `isDueTodayOrEarlier` uses to
+ * keep it off the Today page.
+ *
+ * Sort within a section: by due date (`null` last), then by creation, so the order is
+ * total and stable across the two data modes rather than depending on the order the
+ * repository happened to emit.
+ */
+internal fun List<Task>.sections(today: LocalDate): List<TaskGroup> {
+    val bySection = groupBy { task ->
+        when {
+            task.isCompleted -> TaskSection.COMPLETED
+            task.dueDate == null -> TaskSection.NO_DATE
+            task.dueDate.toLocalDate().isBefore(today) -> TaskSection.OVERDUE
+            task.dueDate.toLocalDate() == today -> TaskSection.TODAY
+            else -> TaskSection.LATER
+        }
+    }
+
+    return TaskSection.entries.mapNotNull { section ->
+        bySection[section]?.let { tasks ->
+            TaskGroup(
+                section = section,
+                tasks = tasks.sortedWith(
+                    compareBy<Task> { it.dueDate }.thenBy { it.createdAt }
+                ),
+            )
+        }
+    }
+}

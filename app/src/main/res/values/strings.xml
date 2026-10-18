@@ -19,6 +19,14 @@
     <string name="task_not_completed">Not completed</string>
     <string name="action_delete_task">Delete task</string>
 
+    <!-- Task list sections. Ordered as they appear: overdue, today, later, undated,
+         completed. -->
+    <string name="section_overdue">Overdue</string>
+    <string name="section_today">Today</string>
+    <string name="section_later">Later</string>
+    <string name="section_no_date">No date</string>
+    <string name="section_completed">Completed</string>
+
     <!-- FAB menu -->
     <string name="fab_new_project">New project</string>
     <string name="fab_new_task">New task</string>

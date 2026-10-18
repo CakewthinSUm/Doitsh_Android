@@ -25,9 +25,9 @@ class LocalTaskRepository @Inject constructor(
 
     // Derived from the full list rather than queried, so both data modes answer
     // identically — see TaskFilters.kt.
-    override fun getInboxTasks(): Flow<List<Task>> = getAllTasks().asInbox()
+    override fun getInboxTasks(): Flow<List<TaskGroup>> = getAllTasks().asInboxGroups()
 
-    override fun getTodayTasks(): Flow<List<Task>> = getAllTasks().asToday()
+    override fun getTodayTasks(): Flow<List<TaskGroup>> = getAllTasks().asTodayGroups()
 
     override fun getTasksByProject(projectId: String): Flow<List<Task>> =
         taskDao.getTasksByProject(projectId).map { entities -> entities.map { it.toDomain() } }

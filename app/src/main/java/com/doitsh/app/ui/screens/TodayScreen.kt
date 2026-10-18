@@ -21,10 +21,10 @@ fun TodayScreen(
     contentPadding: PaddingValues,
     viewModel: TodayViewModel = hiltViewModel()
 ) {
-    val tasks by viewModel.tasks.collectAsState()
+    val groups by viewModel.groups.collectAsState()
 
     TaskList(
-        tasks = tasks,
+        groups = groups,
         contentPadding = contentPadding,
         emptyTitle = stringResource(R.string.today_empty_title),
         emptySubtitle = stringResource(R.string.today_empty_subtitle),

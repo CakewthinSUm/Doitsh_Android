@@ -1,5 +1,6 @@
 package com.doitsh.app.domain.repository
 
+import com.doitsh.app.data.repository.TaskGroup
 import com.doitsh.app.domain.model.Project
 import com.doitsh.app.domain.model.Task
 import kotlinx.coroutines.flow.Flow
@@ -16,11 +17,17 @@ import kotlinx.coroutines.flow.Flow
 interface TaskRepository {
     fun getAllTasks(): Flow<List<Task>>
 
-    /** The Inbox: tasks that belong to no project and are still open. */
-    fun getInboxTasks(): Flow<List<Task>>
+    /**
+     * The Inbox as sections: unfiled tasks grouped by due date, completed ones last.
+     *
+     * Returns [TaskGroup]s rather than a flat list because the page draws one container
+     * per section, and the grouping rule belongs next to the filter that selects the
+     * tasks — see `TaskFilters.kt`.
+     */
+    fun getInboxTasks(): Flow<List<TaskGroup>>
 
-    /** The Today page: open tasks due today or earlier. */
-    fun getTodayTasks(): Flow<List<Task>>
+    /** The Today page as sections: overdue, then due today. */
+    fun getTodayTasks(): Flow<List<TaskGroup>>
 
     fun getTasksByProject(projectId: String): Flow<List<Task>>
     fun getActiveTasks(): Flow<List<Task>>
