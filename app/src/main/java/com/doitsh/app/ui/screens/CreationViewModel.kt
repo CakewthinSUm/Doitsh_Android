@@ -69,6 +69,20 @@ class CreationViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Persists an edited task.
+     *
+     * Takes the whole `Task` rather than the five fields the sheet shows, because the
+     * sheet's caller is what assembles it — `existing.copy(title = ...)` keeps the
+     * fields the form never displays (`id`, `isCompleted`, `createdAt`). `updatedAt`
+     * is stamped by the repository, not here.
+     */
+    fun updateTask(task: Task) {
+        viewModelScope.launch {
+            taskRepository.updateTask(task)
+        }
+    }
+
     fun createProject(name: String, description: String?) {
         viewModelScope.launch {
             projectRepository.addProject(

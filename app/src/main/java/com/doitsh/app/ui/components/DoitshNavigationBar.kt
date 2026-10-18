@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
+import com.doitsh.app.domain.model.Task
 
 /**
  * A top-level destination, shared by the bottom bar and the navigation rail so
@@ -32,15 +33,18 @@ import androidx.window.core.layout.WindowSizeClass
  * drives the transition direction, and the entry provider all follow from it.
  *
  * @param content what to render for this destination, given the content padding of
- *   the surrounding scaffold. A `@Composable (PaddingValues) -> Unit` rather than a
+ *   the surrounding scaffold and the shell's request to open a task. A
+ *   `@Composable (PaddingValues, (Task) -> Unit) -> Unit` rather than a
  *   `@Composable () -> Unit` because every screen here needs that padding to clear
- *   the top bar and the navigation container.
+ *   the top bar and the navigation container, and the list pages need the callback to
+ *   hand a tapped row to the edit sheet — which belongs to the shell, not to them. The
+ *   destinations that do not edit tasks simply ignore the second argument.
  */
 class DoitshNavigationDestination(
     val key: NavKey,
     val icon: ImageVector,
     @StringRes val label: Int,
-    val content: @Composable (PaddingValues) -> Unit,
+    val content: @Composable (PaddingValues, onEdit: (Task) -> Unit) -> Unit,
 )
 
 /**

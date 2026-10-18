@@ -47,6 +47,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.doitsh.app.R
 import com.doitsh.app.domain.model.Priority
 import com.doitsh.app.domain.model.Project
+import com.doitsh.app.domain.model.Task
 import com.doitsh.app.ui.DueDatePreset
 import com.doitsh.app.ui.dragListTop
 import com.doitsh.app.ui.dragTargetIndex
@@ -61,12 +62,29 @@ import java.time.format.FormatStyle
 import kotlin.math.roundToInt
 
 /**
- * The "New task" modal bottom sheet.
+ * The task form, as a modal bottom sheet, for both creating and editing.
  *
  * A sheet rather than a dialog because creating a task is a fast, contextual capture:
  * the list underneath stays visible (dimmed, not hidden), the sheet is dismissible by
  * dragging it down, and the form is laid out at the bottom of the screen where the
  * keyboard is about to appear rather than floating in the middle of it.
+ *
+ * ## One form, two entry points
+ *
+ * Editing is the same five fields as creating — the user is adjusting a task, not
+ * filling in a different kind of object — so this is one composable with the task to
+ * edit as an optional argument, not a second copy. The two modes differ in exactly
+ * three places, each of them derived from `task`:
+ *
+ * - the heading ("New task" or "Edit task"),
+ * - whether the title takes focus on open (see [TaskTitleField]),
+ * - what the footer's callback is handed: nothing on create, the original task on
+ *   edit, so the caller can `copy(...)` over it and keep the fields this form does not
+ *   show — `isCompleted`, `createdAt`, `id`.
+ *
+ * Every field's state is keyed by the task's id, so a sheet that is re-targeted at a
+ * different task (or restored after process death with a different one) cannot show
+ * the previous task's values.
  *
  * ## Only the form scrolls; Save is pinned
  *
@@ -83,20 +101,31 @@ import kotlin.math.roundToInt
  * `Task`, in the Room entity, in the DTO and in the server table, and both were
  * silently defaulted on every task ever created from this app.
  *
+ * @param task the task to edit, or `null` to create one. Everything the form shows is
+ *   seeded from it.
  * @param projects `null` while the project list has not loaded yet, so the picker can
  *   tell "still loading" apart from "no projects exist" — the same convention as the
  *   list screens. An empty list and a loading list both show only Inbox, which is why
  *   the distinction does not change the menu, only whether it is worth opening.
  * @param onDismiss called for the drag-down gesture, the scrim tap and system back —
  *   every way out of the sheet that is not Save.
- * @param onCreate receives the assembled task. The caller is responsible for actually
- *   persisting it and for closing the sheet.
+ * @param onSubmit receives the assembled values, with [task] passed back unchanged so
+ *   the caller can copy the edited fields onto it: `task?.copy(...)`. The caller is
+ *   responsible for actually persisting it and for closing the sheet.
  */
 @Composable
-fun TaskCreationSheet(
+fun TaskEditorSheet(
+    task: Task?,
     projects: List<Project>?,
     onDismiss: () -> Unit,
-    onCreate: (title: String, description: String?, dueDate: LocalDateTime?, priority: Priority, projectId: String?) -> Unit,
+    onSubmit: (
+        task: Task?,
+        title: String,
+        description: String?,
+        dueDate: LocalDateTime?,
+        priority: Priority,
+        projectId: String?,
+    ) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Hidden is the initial value and PartiallyExpanded is deliberately absent from
@@ -109,14 +138,27 @@ fun TaskCreationSheet(
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
     )
 
-    var title by rememberSaveable { mutableStateOf("") }
-    var description by rememberSaveable { mutableStateOf("") }
+    // Keyed by the task, not just remembered: a keyed `rememberSaveable` drops its saved
+    // value when the key changes, so pointing the sheet at another task seeds it from
+    // that task rather than from the one before. Keys are compared by value, which is
+    // why this is the id and not `task` — the caller hands in a fresh `copy` on every
+    // recomposition of an edited task, and a data-class key would reset the form mid-edit.
+    var title by rememberSaveable(task?.id) { mutableStateOf(task?.title.orEmpty()) }
+    var description by rememberSaveable(task?.id) {
+        mutableStateOf(task?.description.orEmpty())
+    }
     // Held as an ISO date string rather than a LocalDate: `rememberSaveable` can only
     // persist types its Saver knows, and a String is one of them. The picker works in
     // whole days anyway, so no time of day is lost.
-    var dueDateIso by rememberSaveable { mutableStateOf<String?>(null) }
-    var priorityName by rememberSaveable { mutableStateOf(Priority.NONE.name) }
-    var projectId by rememberSaveable { mutableStateOf<String?>(null) }
+    var dueDateIso by rememberSaveable(task?.id) {
+        mutableStateOf(task?.dueDate?.toLocalDate()?.toString())
+    }
+    var priorityName by rememberSaveable(task?.id) {
+        mutableStateOf((task?.priority ?: Priority.NONE).name)
+    }
+    var projectId by rememberSaveable(task?.id) { mutableStateOf(task?.projectId) }
+    // Not keyed: whether the calendar dialog is open is about this sheet, not about the
+    // task, and it cannot be open when the sheet is first shown either way.
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
 
     val priority = Priority.entries.firstOrNull { it.name == priorityName } ?: Priority.NONE
@@ -136,7 +178,9 @@ fun TaskCreationSheet(
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = stringResource(R.string.dialog_new_task),
+                text = stringResource(
+                    if (task == null) R.string.dialog_new_task else R.string.dialog_edit_task
+                ),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
@@ -156,6 +200,12 @@ fun TaskCreationSheet(
                     value = title,
                     onValueChange = { title = it },
                     isError = title.isNotEmpty() && title.isBlank(),
+                    // Only a new task takes focus. An edit opened from the list usually
+                    // starts with "change the date" or "move it to a project", and the
+                    // keyboard coming up unbidden would cover exactly the controls the
+                    // user came for. The cursor is one tap away when the title is what
+                    // they want after all.
+                    requestFocusOnOpen = task == null,
                 )
                 SheetTextField(
                     value = description,
@@ -183,7 +233,8 @@ fun TaskCreationSheet(
             // Outside the scroll region, so it stays reachable with the keyboard up.
             Button(
                 onClick = {
-                    onCreate(
+                    onSubmit(
+                        task,
                         title.trim(),
                         description.trim().takeIf { it.isNotEmpty() },
                         // Stored at the start of the picked day: the app compares due
@@ -232,21 +283,27 @@ fun TaskCreationSheet(
 }
 
 /**
- * The title field, which takes focus as soon as the sheet appears.
+ * The title field, which takes focus as soon as the sheet appears when a task is being
+ * created.
  *
- * Focusing it is what makes this a capture flow rather than a form: the user pressed
+ * Focusing it is what makes creation a capture flow rather than a form: the user pressed
  * "+ → New task" to *type something*, so the cursor should already be waiting. The
  * keyboard coming up at the same moment is not a side effect to work around — it is
  * what the sheet's pinned footer and scroll region above are designed around.
+ *
+ * Editing is the other case, and it does not focus. See [requestFocusOnOpen].
  */
 @Composable
 private fun TaskTitleField(
     value: String,
     onValueChange: (String) -> Unit,
     isError: Boolean,
+    requestFocusOnOpen: Boolean,
 ) {
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    LaunchedEffect(Unit) {
+        if (requestFocusOnOpen) focusRequester.requestFocus()
+    }
 
     SheetTextField(
         value = value,

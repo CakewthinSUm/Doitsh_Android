@@ -34,10 +34,11 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.doitsh.app.R
+import com.doitsh.app.domain.model.Task
 import com.doitsh.app.ui.components.DoitshNavigationBar
 import com.doitsh.app.ui.components.DoitshNavigationDestination
 import com.doitsh.app.ui.components.DoitshNavigationRail
-import com.doitsh.app.ui.components.TaskCreationSheet
+import com.doitsh.app.ui.components.TaskEditorSheet
 import com.doitsh.app.ui.components.rememberUseNavigationRail
 import com.doitsh.app.ui.screens.CreationViewModel
 import com.doitsh.app.ui.screens.InboxScreen
@@ -75,15 +76,21 @@ data object Settings : NavKey
  * the one you open the app to *do* something about rather than the one you file things
  * into. Shared by the bottom bar and the wide-screen navigation rail so the two
  * containers can never drift apart.
+ *
+ * The two list pages also need a way to hand a tapped task to the edit sheet, which lives
+ * in the shell above them ([DoitshApp]). Their content takes an `onEdit` the shell
+ * supplies at render time, rather than capturing one here: this list is a constant, and
+ * a lambda holding shell state would make it one that has to be rebuilt on every
+ * recomposition of the shell. Projects does not take it — nothing there edits a task yet.
  */
 private val TopLevelDestinations = listOf(
-    DoitshNavigationDestination(Today, Icons.Filled.Today, R.string.nav_today) { padding ->
-        TodayScreen(contentPadding = padding)
+    DoitshNavigationDestination(Today, Icons.Filled.Today, R.string.nav_today) { padding, onEdit ->
+        TodayScreen(contentPadding = padding, onEdit = onEdit)
     },
-    DoitshNavigationDestination(Inbox, Icons.Outlined.Inbox, R.string.nav_inbox) { padding ->
-        InboxScreen(contentPadding = padding)
+    DoitshNavigationDestination(Inbox, Icons.Outlined.Inbox, R.string.nav_inbox) { padding, onEdit ->
+        InboxScreen(contentPadding = padding, onEdit = onEdit)
     },
-    DoitshNavigationDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects) { padding ->
+    DoitshNavigationDestination(Projects, Icons.Outlined.Folder, R.string.nav_projects) { padding, _ ->
         ProjectsScreen(contentPadding = padding)
     },
 )
@@ -105,6 +112,10 @@ fun DoitshApp() {
     val backStack = rememberNavBackStack(Today)
     var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var creationDialog by remember { mutableStateOf<CreationDialog?>(null) }
+    // What the task sheet is open for, or `null` when it is closed. One piece of state
+    // rather than an open flag plus a task, because "open with no task" and "closed" would
+    // then be two different states that both look like `task == null`.
+    var taskSheet by remember { mutableStateOf<TaskSheet?>(null) }
     val creationViewModel: CreationViewModel = hiltViewModel()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -230,7 +241,11 @@ fun DoitshApp() {
                             entry(
                                 key = destination.key,
                                 metadata = navigationOrder(index),
-                            ) { SceneSurface { destination.content(padding) } }
+                            ) {
+                                SceneSurface {
+                                    destination.content(padding) { taskSheet = TaskSheet(it) }
+                                }
+                            }
                         }
                         entry<Settings> {
                             SceneSurface {
@@ -288,7 +303,7 @@ fun DoitshApp() {
                         FloatingActionButtonMenuItem(
                             onClick = {
                                 fabMenuExpanded = false
-                                creationDialog = CreationDialog.Task
+                                taskSheet = TaskSheet(task = null)
                             },
                             icon = { Icon(Icons.Filled.AddTask, contentDescription = null) },
                             text = { Text(stringResource(R.string.fab_new_task)) }
@@ -303,13 +318,18 @@ fun DoitshApp() {
     // fields and is created constantly, so it earns the larger surface and the
     // drag-to-dismiss gesture; a project is a name and a description, which a dialog
     // says in one glance and a sheet would pad out with empty space.
-    when (creationDialog) {
-        CreationDialog.Task -> {
-            val projects by creationViewModel.projects.collectAsState()
-            TaskCreationSheet(
-                projects = projects,
-                onDismiss = { creationDialog = null },
-                onCreate = { title, description, dueDate, priority, projectId ->
+    //
+    // Task editing is the same sheet, so it is drawn from the same place whether the
+    // request came from the FAB (creating) or from a row tap (editing). One host is what
+    // keeps the two flows from growing two forms that drift apart.
+    taskSheet?.let { request ->
+        val projects by creationViewModel.projects.collectAsState()
+        TaskEditorSheet(
+            task = request.task,
+            projects = projects,
+            onDismiss = { taskSheet = null },
+            onSubmit = { existing, title, description, dueDate, priority, projectId ->
+                if (existing == null) {
                     creationViewModel.createTask(
                         title = title,
                         description = description,
@@ -317,20 +337,33 @@ fun DoitshApp() {
                         priority = priority,
                         projectId = projectId,
                     )
-                    creationDialog = null
-                },
-            )
-        }
+                } else {
+                    // `copy` over the task the sheet was opened on, so the fields the
+                    // form does not show — completion, creation time, id — survive the
+                    // edit.
+                    creationViewModel.updateTask(
+                        existing.copy(
+                            title = title,
+                            description = description,
+                            dueDate = dueDate,
+                            priority = priority,
+                            projectId = projectId,
+                        )
+                    )
+                }
+                taskSheet = null
+            },
+        )
+    }
 
-        CreationDialog.Project -> ProjectCreationDialog(
+    if (creationDialog == CreationDialog.Project) {
+        ProjectCreationDialog(
             onDismiss = { creationDialog = null },
             onCreate = { name, description ->
                 creationViewModel.createProject(name, description)
                 creationDialog = null
             },
         )
-
-        null -> Unit
     }
 }
 
@@ -396,7 +429,19 @@ private fun NavBackStack<NavKey>.navigateTo(key: NavKey) {
     add(key)
 }
 
-private enum class CreationDialog { Project, Task }
+/**
+ * A request to open the task sheet: [task] is the row that was tapped, or `null` for a
+ * new task. A type rather than a bare `Task?` because "open, creating" and "closed" would
+ * otherwise both be `null`, and the sheet would have no state to be open in.
+ */
+private data class TaskSheet(val task: Task?)
+
+/**
+ * The dialog the FAB menu can open. Tasks are not in this enum: they go to [TaskSheet]
+ * above, because a created task and an edited one are the same sheet and should not be
+ * two states that each have to remember the other is closed.
+ */
+private enum class CreationDialog { Project }
 
 /**
  * Creating a project: a name and an optional description.
