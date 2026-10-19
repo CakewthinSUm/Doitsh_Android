@@ -8,10 +8,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.doitsh.app.BuildConfig
 import com.doitsh.app.R
 import com.doitsh.app.data.settings.DataMode
+import com.doitsh.app.data.settings.ThemeMode
 import com.doitsh.app.data.settings.UserSettings
+import com.doitsh.app.ui.components.ConnectedButtonGroup
 
 @Composable
 fun SettingsScreen(
@@ -26,6 +29,11 @@ fun SettingsScreen(
     var mode by remember { mutableStateOf(settings.dataMode) }
     var serverUrl by remember { mutableStateOf(settings.serverUrl ?: "") }
 
+    // The theme is not read from `settings` directly: choosing one has to redraw the
+    // window, and only the shared StateFlow reaches `MainActivity`.
+    val themeViewModel: ThemeViewModel = hiltViewModel()
+    val themeMode by themeViewModel.themeMode.collectAsState()
+
     // stringResource is a composable call, so every message has to be resolved here:
     // the onCheckedChange lambdas below are plain lambdas, not composable contexts.
     val restartHint = stringResource(R.string.settings_mode_applies_after_restart)
@@ -36,6 +44,11 @@ fun SettingsScreen(
     val modeLabels = mapOf(
         DataMode.LOCAL to stringResource(R.string.settings_mode_local),
         DataMode.SELF_HOSTED to stringResource(R.string.settings_mode_self_hosted)
+    )
+    val themeLabels = mapOf(
+        ThemeMode.DARK to stringResource(R.string.settings_theme_dark),
+        ThemeMode.LIGHT to stringResource(R.string.settings_theme_light),
+        ThemeMode.SYSTEM to stringResource(R.string.settings_theme_system),
     )
 
     // Blank is not an error: the field starts empty. Anything non-blank that is not a
@@ -71,20 +84,27 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
+            SettingsSection(title = stringResource(R.string.settings_theme)) {
+                ConnectedButtonGroup(
+                    options = ThemeMode.entries,
+                    selected = themeMode,
+                    labelFor = themeLabels::getValue,
+                    // There is always a scheme: every mode has a meaning, and unlike
+                    // priority a second tap on the checked item does nothing rather than
+                    // clearing the choice.
+                    onToggle = { theme, checked -> if (checked) themeViewModel.select(theme) },
+                )
+            }
+        }
+
+        item {
             SettingsSection(title = stringResource(R.string.settings_data_mode)) {
-                ButtonGroup(
-                    overflowIndicator = { ButtonGroupDefaults.OverflowIndicator(it) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    DataMode.entries.forEach { dataMode ->
-                        toggleableItem(
-                            checked = mode == dataMode,
-                            label = modeLabels.getValue(dataMode),
-                            onCheckedChange = { select(dataMode) },
-                            weight = 1f,
-                        )
-                    }
-                }
+                ConnectedButtonGroup(
+                    options = DataMode.entries,
+                    selected = mode,
+                    labelFor = modeLabels::getValue,
+                    onToggle = { dataMode, checked -> if (checked) select(dataMode) },
+                )
             }
         }
 

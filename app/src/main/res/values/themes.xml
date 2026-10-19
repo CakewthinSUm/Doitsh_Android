@@ -10,4 +10,24 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
+
+    <!--
+      The launch window when the user has pinned Light or Dark in Settings. Only the launch
+      window differs — Compose draws everything after it — so these carry the matching
+      background and nothing else that would fight edge-to-edge. `MainActivity` picks one
+      before `super.onCreate`, since the window is painted from the theme before Hilt has
+      injected anything. They live in the default values/ (not values-night/) because the
+      choice is explicit: Dark must stay dark on a light device.
+    -->
+    <style name="Theme.Doitsh.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background_light</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.Doitsh.Dark" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background_dark</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

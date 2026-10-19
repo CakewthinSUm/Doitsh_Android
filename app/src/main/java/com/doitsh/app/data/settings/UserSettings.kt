@@ -15,6 +15,10 @@ class UserSettings(context: Context) {
         get() = DataMode.entries.firstOrNull { it.name == prefs.getString(KEY_MODE, null) } ?: DataMode.LOCAL
         set(value) = prefs.edit { putString(KEY_MODE, value.name) }
 
+    var themeMode: ThemeMode
+        get() = ThemeMode.fromName(prefs.getString(KEY_THEME_MODE, null))
+        set(value) = prefs.edit { putString(KEY_THEME_MODE, value.name) }
+
     var serverUrl: String?
         get() = prefs.getString(KEY_SERVER_URL, null)
         set(value) = prefs.edit { putString(KEY_SERVER_URL, value) }
@@ -65,6 +69,7 @@ class UserSettings(context: Context) {
 
     companion object {
         private const val KEY_MODE = "data_mode"
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_USER_NAME = "user_name"

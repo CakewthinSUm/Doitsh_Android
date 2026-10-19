@@ -2,4 +2,10 @@
 <resources>
     <!-- Matches LightColorScheme.background / surface in ui/theme/Color.kt. -->
     <color name="window_background">#FFFCFCFF</color>
+
+    <!-- The two explicit launch backgrounds, for when the user has chosen a scheme rather
+         than following the system. Deliberately NOT night-qualified: an explicit choice
+         has to paint the same colour whatever the device is set to. -->
+    <color name="window_background_light">#FFFCFCFF</color>
+    <color name="window_background_dark">#FF1A1B1F</color>
 </resources>
