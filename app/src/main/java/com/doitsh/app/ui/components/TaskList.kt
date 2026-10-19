@@ -108,11 +108,19 @@ fun TaskList(
             groups == null -> item { LoadingState() }
             groups.isEmpty() -> item { EmptyState(emptyTitle, emptySubtitle) }
             else -> groups.forEachIndexed { groupIndex, group ->
-                item(key = "section:${group.section}") {
-                    SectionHeader(
-                        group = group,
-                        topPadding = if (groupIndex == 0) 0.dp else 12.dp,
-                    )
+                // An ungrouped list ("Group by: None") is one container with no caption —
+                // a header reading "None" or the sort field would be noise. It is still a
+                // group of tasks, because the segmented shapes need a count to round the
+                // top and bottom of.
+                val section = group.section
+                if (section != null) {
+                    item(key = "section:${section.name}") {
+                        SectionHeader(
+                            section = section,
+                            count = group.tasks.size,
+                            topPadding = if (groupIndex == 0) 0.dp else 12.dp,
+                        )
+                    }
                 }
                 itemsIndexed(
                     items = group.tasks,
@@ -180,7 +188,7 @@ private fun EmptyState(title: String, subtitle: String) {
  * `TaskEditorSheet.SheetSection`.
  */
 @Composable
-private fun SectionHeader(group: TaskGroup, topPadding: Dp) {
+private fun SectionHeader(section: TaskSection, count: Int, topPadding: Dp) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -188,13 +196,13 @@ private fun SectionHeader(group: TaskGroup, topPadding: Dp) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(group.section.labelRes),
+            text = stringResource(section.labelRes),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = group.tasks.size.toString(),
+            text = count.toString(),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
         )
@@ -557,5 +565,9 @@ private val TaskSection.labelRes: Int
         TaskSection.TODAY -> R.string.section_today
         TaskSection.LATER -> R.string.section_later
         TaskSection.NO_DATE -> R.string.section_no_date
+        TaskSection.PRIORITY_HIGH -> R.string.section_priority_high
+        TaskSection.PRIORITY_MEDIUM -> R.string.section_priority_medium
+        TaskSection.PRIORITY_LOW -> R.string.section_priority_low
+        TaskSection.PRIORITY_NONE -> R.string.section_priority_none
         TaskSection.COMPLETED -> R.string.section_completed
     }

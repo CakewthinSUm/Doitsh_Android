@@ -40,11 +40,14 @@ import com.doitsh.app.ui.components.DoitshNavigationBar
 import com.doitsh.app.ui.components.DoitshNavigationRail
 import com.doitsh.app.ui.components.HomeTab
 import com.doitsh.app.ui.components.TaskEditorSheet
+import com.doitsh.app.ui.components.TaskListSortMenu
+import com.doitsh.app.ui.components.hasTaskListOptions
 import com.doitsh.app.ui.components.rememberUseNavigationRail
 import com.doitsh.app.ui.screens.CreationViewModel
 import com.doitsh.app.ui.screens.InboxScreen
 import com.doitsh.app.ui.screens.ProjectsScreen
 import com.doitsh.app.ui.screens.SettingsScreen
+import com.doitsh.app.ui.screens.TaskListOptionsViewModel
 import com.doitsh.app.ui.screens.TodayScreen
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -81,6 +84,8 @@ fun DoitshApp() {
     // then be two different states that both look like `task == null`.
     var taskSheet by remember { mutableStateOf<TaskSheet?>(null) }
     val creationViewModel: CreationViewModel = hiltViewModel()
+    val optionsViewModel: TaskListOptionsViewModel = hiltViewModel()
+    val taskListOptions by optionsViewModel.options.collectAsState()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -148,6 +153,17 @@ fun DoitshApp() {
                         }
                     },
                     actions = {
+                        // Only the two task list pages have a list to group and sort; the
+                        // Projects page is a list of projects, so the button would be
+                        // offering a choice it does not make. Keyed on `currentTab` — the
+                        // pager's target — so the button matches the title, and it
+                        // disappears as soon as a swipe settles on Projects.
+                        if (isTopLevel && currentTab.hasTaskListOptions) {
+                            TaskListSortMenu(
+                                options = taskListOptions,
+                                onUpdate = optionsViewModel::update,
+                            )
+                        }
                         // Settings is not a top-level destination — it is reached from
                         // here, which keeps the navigation bar at two items.
                         if (isTopLevel) {

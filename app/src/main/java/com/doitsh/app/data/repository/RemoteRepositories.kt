@@ -29,13 +29,6 @@ class RemoteTaskRepository @Inject constructor(
 
     override fun getAllTasks(): Flow<List<Task>> = tasksCache.asStateFlow()
 
-    // Unlike getTasksByProject/getActiveTasks below — which are stubs that return the
-    // whole cache — these two are real, because TaskFilters derives them from the same
-    // full list both modes already hold.
-    override fun getInboxTasks(): Flow<List<TaskGroup>> = getAllTasks().asInboxGroups()
-
-    override fun getTodayTasks(): Flow<List<TaskGroup>> = getAllTasks().asTodayGroups()
-
     override fun getTasksByProject(projectId: String): Flow<List<Task>> {
         // Would need per-project flow; simplified for now
         return tasksCache.asStateFlow()
