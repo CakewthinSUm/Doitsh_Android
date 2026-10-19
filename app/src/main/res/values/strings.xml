@@ -26,7 +26,27 @@
     <string name="section_today">Today</string>
     <string name="section_later">Later</string>
     <string name="section_no_date">No date</string>
+    <string name="section_priority_high">High priority</string>
+    <string name="section_priority_medium">Medium priority</string>
+    <string name="section_priority_low">Low priority</string>
+    <string name="section_priority_none">No priority</string>
     <string name="section_completed">Completed</string>
+
+    <!-- Top bar sort and grouping menu. The three headings are sections of one menu, not
+         a submenu each. -->
+    <string name="action_sort_and_group">Sort and group</string>
+    <string name="menu_group_by">Group by</string>
+    <string name="menu_sort_by">Sort by</string>
+    <string name="menu_direction">Direction</string>
+    <string name="grouping_none">None</string>
+    <string name="grouping_due_date">Due date</string>
+    <string name="grouping_priority">Priority</string>
+    <string name="sort_due_date">Due date</string>
+    <string name="sort_priority">Priority</string>
+    <string name="sort_title">Title</string>
+    <string name="sort_created_at">Created time</string>
+    <string name="direction_ascending">Ascending</string>
+    <string name="direction_descending">Descending</string>
 
     <!-- FAB menu -->
     <string name="fab_new_project">New project</string>

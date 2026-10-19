@@ -1,6 +1,5 @@
 package com.doitsh.app.domain.repository
 
-import com.doitsh.app.data.repository.TaskGroup
 import com.doitsh.app.domain.model.Project
 import com.doitsh.app.domain.model.Task
 import kotlinx.coroutines.flow.Flow
@@ -15,19 +14,14 @@ import kotlinx.coroutines.flow.Flow
  * The user's selected mode decides which implementation Hilt injects.
  */
 interface TaskRepository {
-    fun getAllTasks(): Flow<List<Task>>
-
     /**
-     * The Inbox as sections: unfiled tasks grouped by due date, completed ones last.
+     * Every task, unfiltered.
      *
-     * Returns [TaskGroup]s rather than a flat list because the page draws one container
-     * per section, and the grouping rule belongs next to the filter that selects the
-     * tasks — see `TaskFilters.kt`.
+     * The Today and Inbox pages derive their lists from this rather than asking the
+     * repository for a filtered flow: what each page shows, and how it is grouped and
+     * sorted, is a rule shared by both data modes — see `TaskFilters.kt`.
      */
-    fun getInboxTasks(): Flow<List<TaskGroup>>
-
-    /** The Today page as sections: overdue, then due today. */
-    fun getTodayTasks(): Flow<List<TaskGroup>>
+    fun getAllTasks(): Flow<List<Task>>
 
     fun getTasksByProject(projectId: String): Flow<List<Task>>
     fun getActiveTasks(): Flow<List<Task>>

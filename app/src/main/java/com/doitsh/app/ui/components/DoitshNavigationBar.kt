@@ -48,6 +48,17 @@ enum class HomeTab(
 }
 
 /**
+ * Whether this page shows a task list, and so whether the top bar offers the sort and
+ * grouping menu.
+ *
+ * A property of the enum rather than a `when` at the call site: the pages that read the
+ * options are the pages that must show the menu, and keeping the answer next to the enum
+ * means adding a fourth task page cannot silently omit the button.
+ */
+val HomeTab.hasTaskListOptions: Boolean
+    get() = this == HomeTab.TODAY || this == HomeTab.INBOX
+
+/**
  * Whether the top-level destinations belong in a rail rather than the bottom bar.
  *
  * This is a faithful port of the Material adaptive navigation suite's own rule
