@@ -35,6 +35,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.doitsh.app.R
+import com.doitsh.app.data.repository.TaskPage
 import com.doitsh.app.domain.model.Task
 import com.doitsh.app.ui.components.DoitshNavigationBar
 import com.doitsh.app.ui.components.DoitshNavigationRail
@@ -44,11 +45,10 @@ import com.doitsh.app.ui.components.TaskListSortMenu
 import com.doitsh.app.ui.components.hasTaskListOptions
 import com.doitsh.app.ui.components.rememberUseNavigationRail
 import com.doitsh.app.ui.screens.CreationViewModel
-import com.doitsh.app.ui.screens.InboxScreen
 import com.doitsh.app.ui.screens.ProjectsScreen
 import com.doitsh.app.ui.screens.SettingsScreen
 import com.doitsh.app.ui.screens.TaskListOptionsViewModel
-import com.doitsh.app.ui.screens.TodayScreen
+import com.doitsh.app.ui.screens.TaskListScreen
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
@@ -451,11 +451,13 @@ private fun HomePager(
                     .background(MaterialTheme.colorScheme.background)
             ) {
                 when (tab) {
-                    HomeTab.TODAY -> TodayScreen(
+                    HomeTab.TODAY -> TaskListScreen(
+                        page = TaskPage.TODAY,
                         contentPadding = contentPadding,
                         onEdit = onEdit,
                     )
-                    HomeTab.INBOX -> InboxScreen(
+                    HomeTab.INBOX -> TaskListScreen(
+                        page = TaskPage.INBOX,
                         contentPadding = contentPadding,
                         onEdit = onEdit,
                     )
